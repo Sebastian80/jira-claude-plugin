@@ -8,7 +8,7 @@ Common JQL patterns for `jira search --jql "<JQL>"`.
 | Operator | Example | Notes |
 |----------|---------|-------|
 | `=` | `status = "In Progress"` | Exact match |
-| `!=` | `status != Done` | Not equal |
+| `not in` | `status not in (Done)` | Not equal (alternative) |
 | `>` | `votes > 4` | Greater than (dates, versions, numbers) |
 | `>=` | `duedate >= "2024-01-01"` | Greater than or equal |
 | `<` | `priority < High` | Less than |
@@ -18,7 +18,7 @@ Common JQL patterns for `jira search --jql "<JQL>"`.
 | Operator | Example | Notes |
 |----------|---------|-------|
 | `~` | `summary ~ "login"` | Contains (fuzzy match) |
-| `!~` | `summary !~ "test"` | Does not contain |
+| `NOT ~` | `NOT summary ~ "test"` | Does not contain |
 
 ### List & Null
 | Operator | Example | Notes |
@@ -100,7 +100,7 @@ assignee IN membersOf("developers")
 ```jql
 status = "In Progress"
 status IN (Open, "To Do", "In Progress")
-status != Done
+status not in (Done)
 status WAS "Open"
 status CHANGED FROM "Open" TO "In Progress"
 ```
@@ -169,22 +169,19 @@ project = PROJ ORDER BY priority DESC, created ASC
 
 ## Known Issues
 
-### `!=` and `!~` Operators (Fixed)
+### Negation Operators (Auto-Fixed)
 
-The `atlassian-python-api` library incorrectly escapes `!` in JQL queries. This is **automatically fixed** by the `jira search` command which pre-processes queries to convert:
+The `atlassian-python-api` library incorrectly escapes negation operators in JQL queries. This is **automatically fixed** by the `jira search` command which pre-processes queries.
 
-- `status != Done` → `NOT status = Done`
-- `summary !~ "test"` → `NOT summary ~ "test"`
+Negation operators are converted automatically to NOT syntax.
 
-You can use `!=` and `!~` normally - they will be converted automatically.
+**Recommended syntax** (always works):
 
-**Manual workarounds** (for raw API calls without the fix):
-
-| Instead of | Use |
-|------------|-----|
-| `field != value` | `NOT field = value` |
-| `field != value` | `field not in (value)` |
-| `field !~ value` | `NOT field ~ value` |
+| Pattern | Example |
+|---------|---------|
+| `NOT field = value` | `NOT status = Done` |
+| `field not in (value)` | `status not in (Done)` |
+| `NOT field ~ value` | `NOT summary ~ "test"` |
 
 ## Sources
 

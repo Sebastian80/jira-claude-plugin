@@ -138,10 +138,10 @@ jira issue PROJ-123
 
 ### Search my open issues
 ```bash
-jira search --jql 'assignee = currentUser() AND status != Done'
+jira search --jql 'assignee = currentUser() AND status not in (Done)'
 ```
 
-**Note**: Use single quotes for JQL to avoid bash history expansion with `!`.
+**Note**: Use single quotes for JQL to avoid bash history expansion issues.
 
 ### Transition an issue
 ```bash

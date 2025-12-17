@@ -121,21 +121,21 @@ jira search --jql 'status = Geschlossen'
 jira search --jql 'status = Closed'
 ```
 
-### Bash history expansion with `!=`
+### Bash history expansion with negation operators
 
-**Cause**: Bash interprets `!` in double quotes as history expansion.
+**Cause**: Bash interprets the exclamation mark in double quotes as history expansion.
 
-**Fix**: Use single quotes for JQL:
+**Fix**: Use single quotes for JQL, or use alternative syntax:
 
 ```bash
-# Wrong (double quotes)
-jira search --jql "status != Done"
+# Option 1: Single quotes (recommended)
+jira search --jql 'status not in (Done)'
 
-# Correct (single quotes)
-jira search --jql 'status != Done'
+# Option 2: NOT syntax
+jira search --jql 'NOT status = Done'
 ```
 
-The plugin also auto-converts `!=` to `NOT ... =` as a fallback.
+The plugin auto-converts negation operators to `NOT ... =` as a fallback.
 
 ## Auth Mode Detection
 
