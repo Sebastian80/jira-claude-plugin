@@ -54,7 +54,7 @@ def normalize_status_name(name: str) -> list[str]:
 class GetPriorities(Tool):
     """List all priority levels."""
 
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -72,7 +72,7 @@ class GetPriorities(Tool):
 class GetStatuses(Tool):
     """List all statuses."""
 
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -91,7 +91,7 @@ class GetStatus(Tool):
     """Get status by name (accepts English or localized names)."""
 
     name: str = Field(..., description="Status name (English or localized)")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -117,7 +117,7 @@ class GetFields(Tool):
     """List all fields (optionally only custom fields)."""
 
     custom_only: bool = Field(False, alias="customOnly", description="List only custom fields")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -137,7 +137,7 @@ class GetFields(Tool):
 class GetFilters(Tool):
     """List your favorite filters."""
 
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -162,7 +162,7 @@ class GetFilter(Tool):
     """Get filter details."""
 
     filter_id: str = Field(..., alias="id", description="Filter ID")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"

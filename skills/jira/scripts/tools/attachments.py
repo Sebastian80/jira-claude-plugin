@@ -21,7 +21,7 @@ class GetAttachments(Tool):
     """Get attachments for an issue."""
 
     key: str = Field(..., description="Issue key")
-    format: str = Field("json", description="Output format: json, human")
+    format: str = Field("ai", description="Output format: json, human")
 
     class Meta:
         method = "GET"

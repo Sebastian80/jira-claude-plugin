@@ -23,7 +23,7 @@ class GetLinks(Tool):
     """Get links for an issue."""
 
     key: str = Field(..., description="Issue key")
-    format: str = Field("json", description="Output format: json, human, ai")
+    format: str = Field("ai", description="Output format: json, human, ai")
 
     class Meta:
         method = "GET"

@@ -49,7 +49,7 @@ class SearchIssues(Tool):
         "key,summary,status,assignee,priority,issuetype",
         description="Comma-separated fields to return"
     )
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"

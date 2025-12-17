@@ -21,7 +21,7 @@ class GetWorklogs(Tool):
     """Get worklogs for an issue."""
 
     key: str = Field(..., description="Issue key")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"

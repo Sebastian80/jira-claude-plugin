@@ -23,7 +23,7 @@ class GetVersions(Tool):
     """List versions in a project."""
 
     project: str = Field(..., description="Project key")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -45,7 +45,7 @@ class GetVersion(Tool):
     """Get version details."""
 
     version_id: str = Field(..., alias="id", description="Version ID")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"

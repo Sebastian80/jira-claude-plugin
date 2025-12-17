@@ -24,7 +24,7 @@ class GetIssue(Tool):
     key: str = Field(..., description="Issue key like PROJ-123")
     fields: str | None = Field(None, description="Comma-separated fields to return")
     expand: str | None = Field(None, description="Fields to expand (e.g., 'changelog')")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"

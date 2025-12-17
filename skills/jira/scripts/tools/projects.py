@@ -22,7 +22,7 @@ class GetProjects(Tool):
 
     include_archived: bool = Field(False, alias="includeArchived", description="Include archived projects")
     expand: str | None = Field(None, description="Fields to expand")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -47,7 +47,7 @@ class GetProject(Tool):
     """Get project details by key."""
 
     key: str = Field(..., description="Project key")
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"

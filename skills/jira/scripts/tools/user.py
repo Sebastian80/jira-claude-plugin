@@ -20,7 +20,7 @@ __all__ = ["GetCurrentUser", "GetHealth"]
 class GetCurrentUser(Tool):
     """Get current authenticated user."""
 
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
@@ -38,7 +38,7 @@ class GetCurrentUser(Tool):
 class GetHealth(Tool):
     """Check Jira connection health."""
 
-    format: str = Field("json", description="Output format: json, human, ai, markdown")
+    format: str = Field("ai", description="Output format: json, human, ai, markdown")
 
     class Meta:
         method = "GET"
