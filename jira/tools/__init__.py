@@ -8,7 +8,7 @@ from .issues import CreateIssue, GetIssue, UpdateIssue
 from .search import SearchIssues
 from .comments import AddComment, GetComments
 from .workflow import GetTransitions, Transition, GetWorkflows
-from .links import CreateIssueLink, CreateWebLink, GetLinkTypes, GetLinks
+from .links import CreateIssueLink, CreateWebLink, GetLinkTypes, GetLinks, GetWebLinks
 from .attachments import AddAttachment, GetAttachments
 from .watchers import AddWatcher, GetWatchers, RemoveWatcher
 from .worklogs import AddWorklog, GetWorklogs
@@ -36,6 +36,7 @@ ALL_TOOLS = [
     # Links
     GetLinks,
     GetLinkTypes,
+    GetWebLinks,
     CreateIssueLink,
     CreateWebLink,
     # Attachments
@@ -91,6 +92,7 @@ __all__ = [
     # Links
     "GetLinks",
     "GetLinkTypes",
+    "GetWebLinks",
     "CreateIssueLink",
     "CreateWebLink",
     # Attachments

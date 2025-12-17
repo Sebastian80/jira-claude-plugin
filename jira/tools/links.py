@@ -16,7 +16,7 @@ from toolbus.tools import Tool, ToolContext, ToolResult
 
 from ..response import formatted
 
-__all__ = ["GetLinks", "GetLinkTypes", "CreateIssueLink", "CreateWebLink"]
+__all__ = ["GetLinks", "GetLinkTypes", "CreateIssueLink", "CreateWebLink", "GetWebLinks"]
 
 
 class GetLinks(Tool):
@@ -82,6 +82,27 @@ class CreateIssueLink(Tool):
             return ToolResult(data={"inward": self.inward_issue, "outward": self.outward_issue}, status=201)
         except Exception as e:
             return ToolResult(error=str(e), status=400)
+
+
+class GetWebLinks(Tool):
+    """Get web/remote links for an issue."""
+
+    key: str = Field(..., description="Issue key")
+    format: str = Field("ai", description="Output format: json, rich, ai")
+
+    class Meta:
+        method = "GET"
+        path = "/weblinks/{key}"
+        tags = ["links"]
+
+    async def execute(self, ctx: ToolContext) -> Any:
+        try:
+            links = ctx.client.get_issue_remote_links(self.key)
+            return formatted(links, self.format, "weblinks")
+        except Exception as e:
+            if "does not exist" in str(e).lower() or "404" in str(e):
+                return ToolResult(error=f"Issue {self.key} not found", status=404)
+            return ToolResult(error=str(e), status=500)
 
 
 class CreateWebLink(Tool):

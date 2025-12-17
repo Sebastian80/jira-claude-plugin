@@ -155,7 +155,9 @@ jira comment PROJ-123 --body "Work completed"
 
 ## Localized Jira Instances
 
-If your Jira displays German (or other language) status names, **always use English names in JQL**:
+If your Jira displays German (or other language) status names, **JQL requires internal status names, not display names**.
+
+### Common Status Mappings
 
 | Display Name | JQL Value |
 |--------------|-----------|
@@ -165,7 +167,25 @@ If your Jira displays German (or other language) status names, **always use Engl
 | Erledigt | Resolved |
 | Zu erledigen | To Do |
 
-Example: Even if the UI shows "Geschlossen", use `status = Closed` in JQL.
+### Finding the Correct Status Name
+
+If unsure of the internal name, use `jira statuses` to list all statuses and their IDs:
+```bash
+jira statuses --format json | grep -i "name"
+```
+
+Then use the exact `name` value in JQL, not the translated display name.
+
+### Example Error
+
+```
+# This FAILS (display name)
+jira search --jql 'status = "In Arbeit"'
+# Error: Der Wert 'In Arbeit' existiert nicht für das Feld 'status'.
+
+# This WORKS (internal name)
+jira search --jql 'status = "In Progress"'
+```
 
 ## Related Skills
 

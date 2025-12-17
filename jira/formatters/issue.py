@@ -30,17 +30,17 @@ class JiraIssueRichFormatter(RichFormatter):
     """Rich terminal issue formatting with panels and colors."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, dict) and "fields" in data:
+        if isinstance(data, dict) and ("fields" in data or "key" in data):
             return self._format_issue(data)
         return super().format(data)
 
     def _format_issue(self, issue: dict) -> str:
-        f = issue.get("fields", {})
+        f = issue.get("fields", {}) or {}
         key = issue.get("key", "?")
-        type_name = f.get("issuetype", {}).get("name", "?")
-        status_name = f.get("status", {}).get("name", "?")
-        priority_name = f.get("priority", {}).get("name", "")
-        summary = f.get("summary", "?")
+        type_name = f.get("issuetype", {}).get("name", "?") if f.get("issuetype") else "?"
+        status_name = f.get("status", {}).get("name", "?") if f.get("status") else "?"
+        priority_name = f.get("priority", {}).get("name", "") if f.get("priority") else ""
+        summary = f.get("summary") or "?"
 
         type_icon = get_type_icon(type_name)
         status_icon, status_style = get_status_style(status_name)
@@ -113,23 +113,38 @@ class JiraIssueAIFormatter(AIFormatter):
     """AI-optimized issue formatting (compact, structured)."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, dict) and "fields" in data:
+        if isinstance(data, dict) and ("fields" in data or "key" in data):
             return self._format_issue(data)
         return super().format(data)
 
     def _format_issue(self, issue: dict) -> str:
-        f = issue.get("fields", {})
+        f = issue.get("fields", {}) or {}
         lines = [
             f"ISSUE: {issue.get('key')}",
-            f"type: {f.get('issuetype', {}).get('name')}",
-            f"status: {f.get('status', {}).get('name')}",
-            f"priority: {f.get('priority', {}).get('name')}",
-            f"summary: {f.get('summary')}",
+            f"type: {f.get('issuetype', {}).get('name') if f.get('issuetype') else 'None'}",
+            f"status: {f.get('status', {}).get('name') if f.get('status') else 'None'}",
+            f"priority: {f.get('priority', {}).get('name') if f.get('priority') else 'None'}",
+            f"summary: {f.get('summary') or 'None'}",
         ]
         if f.get("assignee"):
             lines.append(f"assignee: {f['assignee'].get('displayName')}")
         if f.get("description"):
             lines.append(f"description: {f['description'][:600]}")
+
+        # Handle expanded changelog
+        if issue.get("changelog"):
+            changelog = issue["changelog"]
+            histories = changelog.get("histories", [])
+            if histories:
+                lines.append(f"changelog_entries: {len(histories)}")
+                # Show last 3 changes
+                for h in histories[:3]:
+                    author = h.get("author", {}).get("displayName", "?")
+                    created = h.get("created", "?")[:10]
+                    items = h.get("items", [])
+                    changes = ", ".join(f"{i.get('field')}: {i.get('fromString', '')} -> {i.get('toString', '')}" for i in items[:2])
+                    lines.append(f"  - {created} {author}: {changes}")
+
         return "\n".join(lines)
 
 
@@ -137,20 +152,23 @@ class JiraIssueMarkdownFormatter(MarkdownFormatter):
     """Markdown issue formatting."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, dict) and "fields" in data:
+        if isinstance(data, dict) and ("fields" in data or "key" in data):
             return self._format_issue(data)
         return super().format(data)
 
     def _format_issue(self, issue: dict) -> str:
-        f = issue.get("fields", {})
+        f = issue.get("fields", {}) or {}
+        type_name = f.get("issuetype", {}).get("name", "?") if f.get("issuetype") else "?"
+        status_name = f.get("status", {}).get("name", "?") if f.get("status") else "?"
+        priority_name = f.get("priority", {}).get("name", "?") if f.get("priority") else "?"
         lines = [
-            f"## {issue.get('key')}: {f.get('summary', '?')}",
+            f"## {issue.get('key')}: {f.get('summary') or '?'}",
             "",
             "| Field | Value |",
             "|-------|-------|",
-            f"| Type | {f.get('issuetype', {}).get('name', '?')} |",
-            f"| Status | {f.get('status', {}).get('name', '?')} |",
-            f"| Priority | {f.get('priority', {}).get('name', '?')} |",
+            f"| Type | {type_name} |",
+            f"| Status | {status_name} |",
+            f"| Priority | {priority_name} |",
         ]
         if f.get("assignee"):
             lines.append(f"| Assignee | {f['assignee'].get('displayName', '?')} |")
