@@ -3,8 +3,8 @@
 ## Quick Health Check
 
 ```bash
-# Check daemon and Jira connection
-skills-client health
+# Check Jira connection
+jira health
 
 # Verify Jira credentials
 jira user me
@@ -36,7 +36,7 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 **Fix**:
 1. Check if something else uses port 9100: `ss -tlnp | grep 9100`
 2. Check daemon logs: `tail ~/.local/share/ai-tool-bridge/logs/daemon.log`
-3. Restart daemon: `bridge restart`
+3. Restart daemon: `~/.claude/plugins/marketplaces/sebastian-marketplace/plugins/ai-tool-bridge/.venv/bin/bridge restart`
 
 ### "Connection failed" / "Connection reset"
 
@@ -44,7 +44,7 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 
 **Fix**:
 1. Daemon uses IPv6 loopback to bypass ESET - should work automatically
-2. If persists, check daemon is running: `skills-client health`
+2. If persists, check daemon is running: `jira health`
 
 ### "401 Unauthorized"
 
@@ -87,8 +87,8 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 ## Debug Mode
 
 ```bash
-# Check daemon status
-bridge health
+# Check Jira health
+jira health
 
 # View daemon logs
 tail -f ~/.local/share/ai-tool-bridge/logs/daemon.log

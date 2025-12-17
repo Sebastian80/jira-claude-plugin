@@ -1,0 +1,258 @@
+"""
+Base formatter classes and utilities.
+
+Provides base classes, registry, and shared utilities for all Jira formatters.
+"""
+
+import json
+import os
+from io import StringIO
+from pathlib import Path
+from typing import Any
+
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+__all__ = [
+    # Base classes
+    "Formatter",
+    "JsonFormatter",
+    "RichFormatter",
+    "AIFormatter",
+    "MarkdownFormatter",
+    # Registry
+    "FormatterRegistry",
+    "formatter_registry",
+    # Utilities
+    "render_to_string",
+    "make_issue_link",
+    "get_type_icon",
+    "get_status_style",
+    "get_priority_style",
+    # Rich re-exports for formatters
+    "Table",
+    "Panel",
+    "Text",
+    "box",
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Base Formatter Classes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class Formatter:
+    """Base formatter with default implementations."""
+
+    def format(self, data: Any) -> str:
+        """Format data as string. Override in subclasses."""
+        return str(data)
+
+    def format_error(self, message: str, hint: str | None = None) -> str:
+        """Format error message."""
+        if hint:
+            return f"Error: {message}\nHint: {hint}"
+        return f"Error: {message}"
+
+
+class JsonFormatter(Formatter):
+    """JSON output formatter."""
+
+    def format(self, data: Any) -> str:
+        return json.dumps(data, indent=2, default=str)
+
+
+class RichFormatter(Formatter):
+    """Rich terminal output formatter."""
+
+    def format(self, data: Any) -> str:
+        if isinstance(data, dict):
+            return json.dumps(data, indent=2, default=str)
+        return str(data)
+
+
+class AIFormatter(Formatter):
+    """AI-optimized output formatter (compact, structured)."""
+
+    def format(self, data: Any) -> str:
+        return json.dumps(data, separators=(",", ":"), default=str)
+
+
+class MarkdownFormatter(Formatter):
+    """Markdown output formatter."""
+
+    def format(self, data: Any) -> str:
+        if isinstance(data, dict):
+            return f"```json\n{json.dumps(data, indent=2, default=str)}\n```"
+        return str(data)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Formatter Registry
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class FormatterRegistry:
+    """Registry for plugin formatters."""
+
+    def __init__(self):
+        self._formatters: dict[str, Formatter] = {}
+
+    def register(self, plugin: str, data_type: str, format_name: str, formatter: Formatter):
+        """Register a formatter for plugin:data_type:format."""
+        key = f"{plugin}:{data_type}:{format_name}"
+        self._formatters[key] = formatter
+
+    def get(self, format_name: str, plugin: str | None = None, data_type: str | None = None) -> Formatter | None:
+        """Get formatter by format name, optionally filtered by plugin and data_type."""
+        if plugin and data_type:
+            key = f"{plugin}:{data_type}:{format_name}"
+            if key in self._formatters:
+                return self._formatters[key]
+        # Fallback: try without data_type
+        if plugin:
+            for key, fmt in self._formatters.items():
+                if key.startswith(f"{plugin}:") and key.endswith(f":{format_name}"):
+                    return fmt
+        return None
+
+
+# Global plugin-local registry
+formatter_registry = FormatterRegistry()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Jira URL for Hyperlinks
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _get_jira_url() -> str:
+    """Get Jira base URL from environment or config file."""
+    # Try environment first
+    url = os.environ.get("JIRA_URL", "")
+    if url:
+        return url.rstrip("/")
+
+    # Try config file
+    env_file = Path.home() / ".env.jira"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("JIRA_URL="):
+                url = line.partition("=")[2].strip().strip('"').strip("'")
+                return url.rstrip("/")
+    return ""
+
+
+def make_issue_link(key: str, jira_url: str = "") -> Text:
+    """Create a clickable hyperlink to a Jira issue.
+
+    Returns Rich Text object with native link style.
+
+    Args:
+        key: Issue key (e.g., "PROJ-123")
+        jira_url: Base Jira URL (auto-detected if empty)
+    """
+    if not jira_url:
+        jira_url = _get_jira_url()
+
+    text = Text(key)
+    if jira_url:
+        url = f"{jira_url}/browse/{key}"
+        text.stylize(f"bold cyan link {url}")
+    else:
+        text.stylize("bold cyan")
+    return text
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Icons & Status Colors
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+TYPE_ICONS = {
+    # Bugs
+    "bug": "🐛", "problem": "🐛", "fehler": "🐛", "defect": "🐛",
+    # Tasks
+    "task": "☑️", "aufgabe": "☑️",
+    "technical task": "🔧", "sub: technical task": "🔧",
+    # Stories & Features
+    "story": "📗", "user story": "📗", "anforderung": "📗", "anforderung / user story": "📗",
+    "new feature": "✨", "feature": "✨",
+    # Epics
+    "epic": "⚡",
+    # Sub-tasks
+    "subtask": "📎", "sub-task": "📎", "unteraufgabe": "📎",
+    # Improvements
+    "improvement": "💡", "verbesserung": "💡", "enhancement": "💡",
+    # Research & Analysis
+    "analyse": "🔬", "analysis": "🔬", "spike": "🔬", "research": "🔬",
+    "investigation": "🔍", "sub: investigation": "🔍",
+    # Operations
+    "deployment": "🚀", "release": "🚀",
+    # Training & Docs
+    "training-education": "📚", "training": "📚", "documentation": "📝",
+    # Support
+    "support": "🎧", "question": "❓", "incident": "🚨",
+}
+
+STATUS_STYLES = {
+    # Done (green)
+    "done": ("✓", "green"), "fertig": ("✓", "green"), "closed": ("✓", "green"),
+    "geschlossen": ("✓", "green"), "resolved": ("✓", "green"), "released": ("✓", "green"),
+    "ready for deployment": ("✓", "green"),
+    # In Progress (yellow)
+    "in progress": ("►", "yellow"), "in arbeit": ("►", "yellow"),
+    "in review": ("►", "yellow"), "in entwicklung": ("►", "yellow"),
+    "development": ("►", "yellow"),
+    # Waiting (yellow dim)
+    "waiting": ("◦", "yellow"), "wartend": ("◦", "yellow"),
+    "waiting for qa": ("◦", "yellow"), "awaiting approval": ("◦", "yellow"),
+    # Blocked (red)
+    "blocked": ("✗", "red"), "blockiert": ("✗", "red"),
+    # Open/To Do (cyan)
+    "to do": ("○", "cyan"), "zu erledigen": ("○", "cyan"), "open": ("○", "cyan"),
+    "offen": ("○", "cyan"), "new": ("○", "cyan"), "neu": ("○", "cyan"),
+    "backlog": ("·", "dim"),
+    # Review
+    "review": ("◎", "yellow"), "code review": ("◎", "yellow"),
+    "analyse": ("◎", "cyan"),
+}
+
+PRIORITY_STYLES = {
+    "blocker": ("▲▲", "bold red"), "critical": ("▲▲", "bold red"),
+    "highest": ("▲", "red"), "high": ("▲", "yellow"),
+    "medium": ("─", "dim"), "low": ("▼", "dim"), "lowest": ("▼▼", "dim"),
+}
+
+
+def get_type_icon(type_name: str) -> str:
+    """Get icon for issue type."""
+    if not type_name:
+        return "•"
+    return TYPE_ICONS.get(type_name.lower(), "•")
+
+
+def get_status_style(status_name: str) -> tuple[str, str]:
+    """Get icon and style for status."""
+    if not status_name:
+        return ("?", "dim")
+    return STATUS_STYLES.get(status_name.lower(), ("•", "dim"))
+
+
+def get_priority_style(priority_name: str) -> tuple[str, str]:
+    """Get icon and style for priority."""
+    if not priority_name:
+        return ("", "dim")
+    return PRIORITY_STYLES.get(priority_name.lower(), ("", "dim"))
+
+
+def render_to_string(renderable) -> str:
+    """Render a Rich object to ANSI string."""
+    console = Console(file=StringIO(), force_terminal=True, width=80)
+    console.print(renderable)
+    return console.file.getvalue().rstrip()

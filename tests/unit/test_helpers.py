@@ -9,14 +9,13 @@ from pathlib import Path
 import pytest
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-# Setup paths
+# Setup paths - add jira package root to path
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
-SCRIPTS_DIR = PLUGIN_ROOT / "skills" / "jira" / "scripts"
 TOOLBUS_DIR = PLUGIN_ROOT.parent / "ai-tool-bridge"
-sys.path.insert(0, str(SCRIPTS_DIR))
+sys.path.insert(0, str(PLUGIN_ROOT))
 sys.path.insert(0, str(TOOLBUS_DIR))
 
-from response import success, error, formatted, formatted_error
+from jira.response import success, error, formatted, formatted_error
 
 
 class TestSuccess:
@@ -104,9 +103,9 @@ class TestFormatted:
         assert body["success"] is True
         assert body["data"] == {"key": "TEST-1"}
 
-    def test_human_format_returns_plaintext(self):
-        """Human format should return PlainTextResponse."""
-        result = formatted({"key": "TEST-1"}, "human")
+    def test_rich_format_returns_plaintext(self):
+        """Rich format should return PlainTextResponse."""
+        result = formatted({"key": "TEST-1"}, "rich")
 
         assert isinstance(result, PlainTextResponse)
 
@@ -126,15 +125,15 @@ class TestFormattedError:
 
         assert isinstance(result, JSONResponse)
 
-    def test_human_format_returns_plaintext(self):
-        """Human format should return PlainTextResponse."""
-        result = formatted_error("Error message", fmt="human")
+    def test_rich_format_returns_plaintext(self):
+        """Rich format should return PlainTextResponse."""
+        result = formatted_error("Error message", fmt="rich")
 
         assert isinstance(result, PlainTextResponse)
 
     def test_includes_hint(self):
         """Should include hint in formatted error."""
-        result = formatted_error("Error", hint="Try this", fmt="human")
+        result = formatted_error("Error", hint="Try this", fmt="rich")
 
         assert isinstance(result, PlainTextResponse)
         assert b"Try this" in result.body or "Try this" in str(result.body)

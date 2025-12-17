@@ -7,39 +7,38 @@ from pathlib import Path
 
 import pytest
 
-# Setup paths
+# Setup paths - add jira package root to path
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
-SCRIPTS_DIR = PLUGIN_ROOT / "skills" / "jira" / "scripts"
 TOOLBUS_DIR = PLUGIN_ROOT.parent / "ai-tool-bridge"
-sys.path.insert(0, str(SCRIPTS_DIR))
+sys.path.insert(0, str(PLUGIN_ROOT))
 sys.path.insert(0, str(TOOLBUS_DIR))
 
-from formatters import (
-    JiraIssueHumanFormatter,
+from jira.formatters import (
+    JiraIssueRichFormatter,
     JiraIssueAIFormatter,
     JiraIssueMarkdownFormatter,
-    JiraSearchHumanFormatter,
+    JiraSearchRichFormatter,
     JiraSearchAIFormatter,
     JiraSearchMarkdownFormatter,
-    JiraTransitionsHumanFormatter,
+    JiraTransitionsRichFormatter,
     JiraTransitionsAIFormatter,
-    JiraCommentsHumanFormatter,
+    JiraCommentsRichFormatter,
     JiraCommentsAIFormatter,
     register_jira_formatters,
+    formatter_registry,
 )
-from formatters import formatter_registry
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Issue Formatter Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestJiraIssueHumanFormatter:
-    """Tests for human-readable issue formatting."""
+class TestJiraIssueRichFormatter:
+    """Tests for rich issue formatting."""
 
     @pytest.fixture
     def formatter(self):
-        return JiraIssueHumanFormatter()
+        return JiraIssueRichFormatter()
 
     def test_format_issue_basic(self, formatter, sample_issue):
         """Should format issue with key, type, status, priority."""
@@ -136,12 +135,12 @@ class TestJiraIssueMarkdownFormatter:
 # Search Results Formatter Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestJiraSearchHumanFormatter:
-    """Tests for human-readable search results."""
+class TestJiraSearchRichFormatter:
+    """Tests for rich search results."""
 
     @pytest.fixture
     def formatter(self):
-        return JiraSearchHumanFormatter()
+        return JiraSearchRichFormatter()
 
     def test_format_search_results(self, formatter, sample_search_results):
         """Should format search results as list."""
@@ -178,8 +177,7 @@ class TestJiraSearchAIFormatter:
     def test_format_empty_results(self, formatter):
         """Should return specific marker for empty results."""
         result = formatter.format([])
-        # Falls back to parent AIFormatter which returns "EMPTY_RESULT: No items found"
-        assert "EMPTY_RESULT" in result or "No" in result
+        assert "NO_ISSUES_FOUND" in result
 
     def test_format_truncates_large_results(self, formatter):
         """Should truncate results beyond 30 items."""
@@ -216,12 +214,12 @@ class TestJiraSearchMarkdownFormatter:
 # Transitions Formatter Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestJiraTransitionsHumanFormatter:
-    """Tests for human-readable transitions."""
+class TestJiraTransitionsRichFormatter:
+    """Tests for rich transitions."""
 
     @pytest.fixture
     def formatter(self):
-        return JiraTransitionsHumanFormatter()
+        return JiraTransitionsRichFormatter()
 
     def test_format_transitions_list(self, formatter, sample_transitions):
         """Should format transitions as list."""
@@ -255,20 +253,19 @@ class TestJiraTransitionsAIFormatter:
     def test_format_empty_transitions(self, formatter):
         """Should return marker for no transitions."""
         result = formatter.format([])
-        # Empty list without "to" field falls back to parent which returns "EMPTY_RESULT"
-        assert "EMPTY_RESULT" in result or "No" in result
+        assert "NO_TRANSITIONS_AVAILABLE" in result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Comments Formatter Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestJiraCommentsHumanFormatter:
-    """Tests for human-readable comments."""
+class TestJiraCommentsRichFormatter:
+    """Tests for rich comments."""
 
     @pytest.fixture
     def formatter(self):
-        return JiraCommentsHumanFormatter()
+        return JiraCommentsRichFormatter()
 
     def test_format_comments_list(self, formatter, sample_comments):
         """Should format comments with author and body."""
@@ -314,8 +311,7 @@ class TestJiraCommentsAIFormatter:
     def test_format_empty_comments(self, formatter):
         """Should return marker for no comments."""
         result = formatter.format([])
-        # Empty list without "author" field falls back to parent which returns "EMPTY_RESULT"
-        assert "EMPTY_RESULT" in result or "No" in result
+        assert "NO_COMMENTS" in result
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -331,38 +327,38 @@ class TestFormatterRegistry:
         register_jira_formatters()
 
         # Check issue formatters (new API: get(format_name, plugin=..., data_type=...))
-        assert formatter_registry.get("human", plugin="jira", data_type="issue") is not None
+        assert formatter_registry.get("rich", plugin="jira", data_type="issue") is not None
         assert formatter_registry.get("ai", plugin="jira", data_type="issue") is not None
         assert formatter_registry.get("markdown", plugin="jira", data_type="issue") is not None
 
         # Check search formatters
-        assert formatter_registry.get("human", plugin="jira", data_type="search") is not None
+        assert formatter_registry.get("rich", plugin="jira", data_type="search") is not None
         assert formatter_registry.get("ai", plugin="jira", data_type="search") is not None
 
         # Check transitions formatters
-        assert formatter_registry.get("human", plugin="jira", data_type="transitions") is not None
+        assert formatter_registry.get("rich", plugin="jira", data_type="transitions") is not None
         assert formatter_registry.get("ai", plugin="jira", data_type="transitions") is not None
 
         # Check comments formatters
-        assert formatter_registry.get("human", plugin="jira", data_type="comments") is not None
+        assert formatter_registry.get("rich", plugin="jira", data_type="comments") is not None
         assert formatter_registry.get("ai", plugin="jira", data_type="comments") is not None
 
     def test_registered_formatters_are_correct_type(self):
         """Registered formatters should be correct types."""
-        issue_formatter = formatter_registry.get("human", plugin="jira", data_type="issue")
-        assert isinstance(issue_formatter, JiraIssueHumanFormatter)
+        issue_formatter = formatter_registry.get("rich", plugin="jira", data_type="issue")
+        assert isinstance(issue_formatter, JiraIssueRichFormatter)
 
         ai_formatter = formatter_registry.get("ai", plugin="jira", data_type="issue")
         assert isinstance(ai_formatter, JiraIssueAIFormatter)
 
     def test_fallback_to_base_formatter(self):
         """Should fall back to global formatter for unknown types."""
-        from formatters import HumanFormatter
+        from jira.formatters import RichFormatter
         # Register a formatter for fallback test
-        formatter_registry.register("jira", "fallback_test", "human", HumanFormatter())
+        formatter_registry.register("jira", "fallback_test", "rich", RichFormatter())
 
-        formatter = formatter_registry.get("human", plugin="jira", data_type="fallback_test")
-        # Should get the registered HumanFormatter
+        formatter = formatter_registry.get("rich", plugin="jira", data_type="fallback_test")
+        # Should get the registered RichFormatter
         assert formatter is not None
 
 
@@ -375,7 +371,7 @@ class TestFormatterEdgeCases:
 
     def test_issue_with_missing_fields(self):
         """Should handle issues with missing fields gracefully."""
-        formatter = JiraIssueHumanFormatter()
+        formatter = JiraIssueRichFormatter()
         issue = {"key": "TEST-1", "fields": {}}
         result = formatter.format(issue)
         assert "TEST-1" in result
@@ -408,7 +404,7 @@ class TestFormatterEdgeCases:
 
     def test_transition_with_data(self):
         """Should format transitions with all fields."""
-        formatter = JiraTransitionsHumanFormatter()
+        formatter = JiraTransitionsRichFormatter()
         transitions = [{"id": "1", "name": "Test Transition", "to": "Done"}]
         result = formatter.format(transitions)
         assert "Test Transition" in result
@@ -416,7 +412,7 @@ class TestFormatterEdgeCases:
 
     def test_comment_with_newlines(self):
         """Should handle comments with newlines."""
-        formatter = JiraCommentsHumanFormatter()
+        formatter = JiraCommentsRichFormatter()
         comments = [{
             "author": {"displayName": "User"},
             "body": "Line 1\nLine 2\nLine 3",

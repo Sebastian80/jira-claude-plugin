@@ -10,10 +10,9 @@ import pytest
 
 # Add paths for importing
 PLUGIN_ROOT = Path(__file__).parent.parent
-SCRIPTS_DIR = PLUGIN_ROOT / "skills" / "jira" / "scripts"
 AI_TOOL_BRIDGE = PLUGIN_ROOT.parent / "ai-tool-bridge" / "src"
 
-sys.path.insert(0, str(SCRIPTS_DIR))
+sys.path.insert(0, str(PLUGIN_ROOT))
 sys.path.insert(0, str(AI_TOOL_BRIDGE))
 
 

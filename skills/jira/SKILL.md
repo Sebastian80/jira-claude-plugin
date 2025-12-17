@@ -62,11 +62,11 @@ jira search --jql "project = PROJ" --maxResults 50
 
 # ─── Transitions ─────────────────────────────────────
 jira transitions PROJ-123              # List available transitions
-jira transition PROJ-123 --target "In Progress"
+jira transition PROJ-123 --transition "In Progress"
 
 # ─── Comments ─────────────────────────────────────────
 jira comments PROJ-123                 # List comments
-jira comment PROJ-123 --text "Done"    # Add comment
+jira comment PROJ-123 --body "Done"    # Add comment
 
 # ─── Time Tracking ────────────────────────────────────
 jira worklogs PROJ-123                 # List worklogs
@@ -76,9 +76,9 @@ jira worklog PROJ-123 12345            # Get specific worklog
 # ─── Links ────────────────────────────────────────────
 jira links PROJ-123                    # Issue links
 jira linktypes                         # Available link types
-jira link --from PROJ-1 --to PROJ-2 --type Blocks
+jira link --inward PROJ-1 --outward PROJ-2 --type Blocks
 jira weblinks PROJ-123                 # Web/remote links
-jira weblink PROJ-123 --url "https://..."
+jira weblink PROJ-123 --url "https://..." --title "Link title"
 
 # ─── Attachments & Watchers ───────────────────────────
 jira attachments PROJ-123              # List attachments
@@ -115,11 +115,11 @@ Help is generated from daemon's FastAPI metadata - always current.
 ## Output Formats
 
 ```bash
-jira issue PROJ-123                     # Default JSON output
-jira issue PROJ-123 --format human      # Human-readable tables
+jira issue PROJ-123                     # Default: ai format (token-efficient)
+jira issue PROJ-123 --format rich       # Rich terminal output with colors
 jira issue PROJ-123 --format ai         # Structured for AI context
 jira issue PROJ-123 --format markdown   # Markdown tables
-jira issue PROJ-123 --format json       # Raw JSON (explicit)
+jira issue PROJ-123 --format json       # Raw JSON
 ```
 
 ## Permission Setup
@@ -145,12 +145,12 @@ jira search --jql 'assignee = currentUser() AND status != Done'
 
 ### Transition an issue
 ```bash
-jira transition PROJ-123 --target "In Progress"
+jira transition PROJ-123 --transition "In Progress"
 ```
 
 ### Add a comment
 ```bash
-jira comment PROJ-123 --text "Work completed"
+jira comment PROJ-123 --body "Work completed"
 ```
 
 ## Localized Jira Instances

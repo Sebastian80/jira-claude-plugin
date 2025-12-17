@@ -9,12 +9,11 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-# Setup paths
+# Setup paths - add jira package root to path
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
-SCRIPTS_DIR = PLUGIN_ROOT / "skills" / "jira" / "scripts"
-AI_TOOL_BRIDGE = PLUGIN_ROOT.parent / "ai-tool-bridge" / "src"
-sys.path.insert(0, str(SCRIPTS_DIR))
-sys.path.insert(0, str(AI_TOOL_BRIDGE))
+TOOLBUS_DIR = PLUGIN_ROOT.parent / "ai-tool-bridge"
+sys.path.insert(0, str(PLUGIN_ROOT))
+sys.path.insert(0, str(TOOLBUS_DIR))
 
 
 class TestJiraPluginStartup:
@@ -23,13 +22,13 @@ class TestJiraPluginStartup:
     @pytest.fixture
     def plugin(self):
         """Create a fresh JiraPlugin instance."""
-        from plugin import JiraPlugin
+        from jira.plugin import JiraPlugin
         return JiraPlugin()
 
     @pytest.mark.asyncio
     async def test_startup_connects_connector(self, plugin, mock_jira_client):
         """startup() should connect the connector."""
-        with patch("lib.client.get_jira_client", return_value=mock_jira_client):
+        with patch("jira.lib.client.get_jira_client", return_value=mock_jira_client):
             await plugin.startup()
 
         assert plugin._connector._healthy is True
@@ -37,7 +36,7 @@ class TestJiraPluginStartup:
     @pytest.mark.asyncio
     async def test_startup_handles_connection_failure(self, plugin):
         """startup() should handle connection failure gracefully."""
-        with patch("lib.client.get_jira_client", side_effect=Exception("Connection refused")):
+        with patch("jira.lib.client.get_jira_client", side_effect=Exception("Connection refused")):
             # Should not raise - logs warning instead
             await plugin.startup()
 
@@ -50,7 +49,7 @@ class TestJiraPluginShutdown:
     @pytest.fixture
     def plugin(self):
         """Create a fresh JiraPlugin instance."""
-        from plugin import JiraPlugin
+        from jira.plugin import JiraPlugin
         return JiraPlugin()
 
     @pytest.mark.asyncio
@@ -81,32 +80,35 @@ class TestJiraPluginHealthCheck:
     @pytest.fixture
     def plugin(self):
         """Create a fresh JiraPlugin instance."""
-        from plugin import JiraPlugin
+        from jira.plugin import JiraPlugin
         return JiraPlugin()
 
-    def test_health_check_not_connected(self, plugin):
+    @pytest.mark.asyncio
+    async def test_health_check_not_connected(self, plugin):
         """health_check() should return not_connected when connector unhealthy."""
         plugin._connector._client = None
         plugin._connector._healthy = False
         plugin._connector._circuit_state = "closed"
 
-        result = plugin.health_check()
+        result = await plugin.health_check()
 
-        assert result["status"] == "not_connected"
+        assert result["status"] == "unhealthy"
         assert result["can_reconnect"] is True
 
-    def test_health_check_connected(self, plugin, mock_jira_client):
+    @pytest.mark.asyncio
+    async def test_health_check_connected(self, plugin, mock_jira_client):
         """health_check() should return connected when connector healthy."""
         plugin._connector._client = mock_jira_client
         plugin._connector._healthy = True
         plugin._connector._circuit_state = "closed"
 
-        result = plugin.health_check()
+        result = await plugin.health_check()
 
-        assert result["status"] == "connected"
+        assert result["status"] == "healthy"
         assert result["circuit_state"] == "closed"
 
-    def test_health_check_circuit_open(self, plugin):
+    @pytest.mark.asyncio
+    async def test_health_check_circuit_open(self, plugin):
         """health_check() should detect open circuit breaker."""
         plugin._connector._client = None
         plugin._connector._healthy = False
@@ -114,9 +116,9 @@ class TestJiraPluginHealthCheck:
         plugin._connector._failure_count = 5
         plugin._connector._last_failure_time = time.time()
 
-        result = plugin.health_check()
+        result = await plugin.health_check()
 
-        assert result["status"] == "not_connected"
+        assert result["status"] == "unhealthy"
         assert result["circuit_state"] == "open"
         assert result["can_reconnect"] is False
         assert result["failure_count"] == 5
@@ -128,7 +130,7 @@ class TestJiraConnector:
     @pytest.fixture
     def connector(self):
         """Create a fresh JiraConnector instance."""
-        from connector import JiraConnector
+        from jira.connector import JiraConnector
         return JiraConnector()
 
     def test_name_property(self, connector):
@@ -161,7 +163,7 @@ class TestJiraConnector:
     @pytest.mark.asyncio
     async def test_connect_success(self, connector, mock_jira_client):
         """connect() should set client and healthy state."""
-        with patch("lib.client.get_jira_client", return_value=mock_jira_client):
+        with patch("jira.lib.client.get_jira_client", return_value=mock_jira_client):
             await connector.connect()
 
         assert connector._client is mock_jira_client
@@ -173,7 +175,7 @@ class TestJiraConnector:
         """connect() should increment failure count on error."""
         initial_count = connector._failure_count
 
-        with patch("lib.client.get_jira_client", side_effect=Exception("Connection refused")):
+        with patch("jira.lib.client.get_jira_client", side_effect=Exception("Connection refused")):
             with pytest.raises(Exception):
                 await connector.connect()
 
@@ -198,7 +200,7 @@ class TestJiraPluginProperties:
     @pytest.fixture
     def plugin(self):
         """Create a fresh JiraPlugin instance."""
-        from plugin import JiraPlugin
+        from jira.plugin import JiraPlugin
         return JiraPlugin()
 
     def test_name_property(self, plugin):
@@ -228,5 +230,5 @@ class TestJiraPluginProperties:
 
     def test_connector_property(self, plugin):
         """Plugin should expose connector."""
-        from connector import JiraConnector
+        from jira.connector import JiraConnector
         assert isinstance(plugin.connector, JiraConnector)
