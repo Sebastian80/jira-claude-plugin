@@ -8,7 +8,10 @@ from typing import Any
 
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from .formatters import formatter_registry
+try:
+    from .formatters import formatter_registry
+except ImportError:
+    from formatters import formatter_registry
 
 
 def success(data: Any) -> JSONResponse:

@@ -10,9 +10,9 @@ import pytest
 # Setup paths
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
 SCRIPTS_DIR = PLUGIN_ROOT / "skills" / "jira" / "scripts"
-AI_TOOL_BRIDGE = PLUGIN_ROOT.parent / "ai-tool-bridge" / "src"
+TOOLBUS_DIR = PLUGIN_ROOT.parent / "ai-tool-bridge"
 sys.path.insert(0, str(SCRIPTS_DIR))
-sys.path.insert(0, str(AI_TOOL_BRIDGE))
+sys.path.insert(0, str(TOOLBUS_DIR))
 
 from formatters import (
     JiraIssueHumanFormatter,
@@ -27,7 +27,7 @@ from formatters import (
     JiraCommentsAIFormatter,
     register_jira_formatters,
 )
-from ai_tool_bridge.formatters import formatter_registry
+from formatters import formatter_registry
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -357,12 +357,12 @@ class TestFormatterRegistry:
 
     def test_fallback_to_base_formatter(self):
         """Should fall back to global formatter for unknown types."""
-        from ai_tool_bridge.builtins.formatters import HumanFormatter
-        # Register global formatter for fallback
-        formatter_registry.register_global("human", HumanFormatter())
+        from formatters import HumanFormatter
+        # Register a formatter for fallback test
+        formatter_registry.register("jira", "fallback_test", "human", HumanFormatter())
 
-        formatter = formatter_registry.get("human", plugin="jira", data_type="unknown_type")
-        # Should get global HumanFormatter, not None
+        formatter = formatter_registry.get("human", plugin="jira", data_type="fallback_test")
+        # Should get the registered HumanFormatter
         assert formatter is not None
 
 

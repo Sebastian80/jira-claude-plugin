@@ -12,9 +12,9 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 # Setup paths
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
 SCRIPTS_DIR = PLUGIN_ROOT / "skills" / "jira" / "scripts"
-AI_TOOL_BRIDGE = PLUGIN_ROOT.parent / "ai-tool-bridge" / "src"
+TOOLBUS_DIR = PLUGIN_ROOT.parent / "ai-tool-bridge"
 sys.path.insert(0, str(SCRIPTS_DIR))
-sys.path.insert(0, str(AI_TOOL_BRIDGE))
+sys.path.insert(0, str(TOOLBUS_DIR))
 
 from response import success, error, formatted, formatted_error
 
