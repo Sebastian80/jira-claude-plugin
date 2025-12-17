@@ -1,0 +1,10 @@
+{
+  "name": "jira",
+  "version": "1.0.0",
+  "description": "Comprehensive Jira integration with syntax validation, templates, and API operations",
+  "author": {
+    "name": "Netresearch DTT GmbH",
+    "email": "info@netresearch.de"
+  },
+  "license": "MIT"
+}
