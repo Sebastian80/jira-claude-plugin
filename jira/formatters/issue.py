@@ -26,6 +26,30 @@ from .base import (
 __all__ = ["JiraIssueRichFormatter", "JiraIssueAIFormatter", "JiraIssueMarkdownFormatter"]
 
 
+def _get_nested(data: dict, *keys: str, default: str = "?") -> str:
+    """Safely get nested dictionary value.
+
+    Args:
+        data: Dictionary to traverse
+        *keys: Sequence of keys to follow
+        default: Default value if path doesn't exist
+
+    Returns:
+        The value at the path or default if not found/None.
+
+    Example:
+        _get_nested(issue, "fields", "status", "name")  # -> "Open" or "?"
+    """
+    result = data
+    for key in keys:
+        if not isinstance(result, dict):
+            return default
+        result = result.get(key)
+        if result is None:
+            return default
+    return str(result) if result is not None else default
+
+
 class JiraIssueRichFormatter(RichFormatter):
     """Rich terminal issue formatting with panels and colors."""
 
@@ -132,13 +156,13 @@ class JiraIssueAIFormatter(AIFormatter):
         f = issue.get("fields", {}) or {}
         lines = [
             f"ISSUE: {issue.get('key')}",
-            f"type: {f.get('issuetype', {}).get('name') if f.get('issuetype') else 'None'}",
-            f"status: {f.get('status', {}).get('name') if f.get('status') else 'None'}",
-            f"priority: {f.get('priority', {}).get('name') if f.get('priority') else 'None'}",
+            f"type: {_get_nested(f, 'issuetype', 'name', default='None')}",
+            f"status: {_get_nested(f, 'status', 'name', default='None')}",
+            f"priority: {_get_nested(f, 'priority', 'name', default='None')}",
             f"summary: {f.get('summary') or 'None'}",
         ]
         if f.get("assignee"):
-            lines.append(f"assignee: {f['assignee'].get('displayName')}")
+            lines.append(f"assignee: {_get_nested(f, 'assignee', 'displayName')}")
         if f.get("description"):
             lines.append(f"description: {f['description'][:600]}")
 
@@ -151,9 +175,13 @@ class JiraIssueAIFormatter(AIFormatter):
                 # Show last 3 changes
                 for h in histories[:3]:
                     author = h.get("author", {}).get("displayName", "?")
-                    created = h.get("created", "?")[:10]
-                    items = h.get("items", [])
-                    changes = ", ".join(f"{i.get('field')}: {i.get('fromString', '')} -> {i.get('toString', '')}" for i in items[:2])
+                    created = h.get("created") or "?"
+                    created = created[:10] if isinstance(created, str) else "?"
+                    items = h.get("items", []) or []
+                    changes = ", ".join(
+                        f"{i.get('field', '?')}: {i.get('fromString') or ''} -> {i.get('toString') or ''}"
+                        for i in items[:2]
+                    )
                     lines.append(f"  - {created} {author}: {changes}")
 
         return "\n".join(lines)
@@ -169,20 +197,17 @@ class JiraIssueMarkdownFormatter(MarkdownFormatter):
 
     def _format_issue(self, issue: dict) -> str:
         f = issue.get("fields", {}) or {}
-        type_name = f.get("issuetype", {}).get("name", "?") if f.get("issuetype") else "?"
-        status_name = f.get("status", {}).get("name", "?") if f.get("status") else "?"
-        priority_name = f.get("priority", {}).get("name", "?") if f.get("priority") else "?"
         lines = [
             f"## {issue.get('key')}: {f.get('summary') or '?'}",
             "",
             "| Field | Value |",
             "|-------|-------|",
-            f"| Type | {type_name} |",
-            f"| Status | {status_name} |",
-            f"| Priority | {priority_name} |",
+            f"| Type | {_get_nested(f, 'issuetype', 'name')} |",
+            f"| Status | {_get_nested(f, 'status', 'name')} |",
+            f"| Priority | {_get_nested(f, 'priority', 'name')} |",
         ]
         if f.get("assignee"):
-            lines.append(f"| Assignee | {f['assignee'].get('displayName', '?')} |")
+            lines.append(f"| Assignee | {_get_nested(f, 'assignee', 'displayName')} |")
         if f.get("description"):
             lines.extend(["", "### Description", "", f.get("description", "")[:600]])
         return "\n".join(lines)

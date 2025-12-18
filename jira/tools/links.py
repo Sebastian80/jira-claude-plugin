@@ -11,7 +11,9 @@ Tools:
 
 from typing import Any
 
+from atlassian.errors import ApiNotFoundError
 from pydantic import Field
+from requests import HTTPError
 
 from toolbus.tools import Tool, ToolContext, ToolResult
 
@@ -113,13 +115,23 @@ class GetWebLinks(Tool):
 
         Returns:
             Formatted list of web links or ToolResult on error.
+
+        Raises:
+            ToolResult with 404 if issue not found.
+            ToolResult with 500 for other errors.
         """
         try:
             links = ctx.client.get_issue_remote_links(self.key)
             return formatted(links, self.format, "weblinks")
+        except ApiNotFoundError:
+            return ToolResult(error=f"Issue {self.key} not found", status=404)
+        except HTTPError as e:
+            # Check HTTP status code from requests library
+            if hasattr(e, "response") and e.response is not None:
+                if e.response.status_code == 404:
+                    return ToolResult(error=f"Issue {self.key} not found", status=404)
+            return ToolResult(error=str(e), status=500)
         except Exception as e:
-            if "does not exist" in str(e).lower() or "404" in str(e):
-                return ToolResult(error=f"Issue {self.key} not found", status=404)
             return ToolResult(error=str(e), status=500)
 
 
