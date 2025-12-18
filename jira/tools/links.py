@@ -2,10 +2,11 @@
 Link tools - Issue links and web links.
 
 Tools:
-- GetLinks: Get issue links
-- GetLinkTypes: Get available link types
-- CreateIssueLink: Link two issues
-- CreateWebLink: Add web link to issue
+- GetLinks: Get issue links for an issue
+- GetLinkTypes: Get available link types in the Jira instance
+- GetWebLinks: Get web/remote links attached to an issue
+- CreateIssueLink: Link two issues together
+- CreateWebLink: Add a web link to an issue
 """
 
 from typing import Any
@@ -85,7 +86,16 @@ class CreateIssueLink(Tool):
 
 
 class GetWebLinks(Tool):
-    """Get web/remote links for an issue."""
+    """Get web/remote links for an issue.
+
+    Retrieves all external URLs attached to an issue as remote links.
+    These are typically links to external resources like documentation,
+    related PRs, or external tracking systems.
+
+    Example:
+        jira weblinks PROJ-123
+        jira weblinks PROJ-123 --format json
+    """
 
     key: str = Field(..., description="Issue key")
     format: str = Field("ai", description="Output format: json, rich, ai")
@@ -96,6 +106,14 @@ class GetWebLinks(Tool):
         tags = ["links"]
 
     async def execute(self, ctx: ToolContext) -> Any:
+        """Fetch remote links from Jira API.
+
+        Args:
+            ctx: Tool context with Jira client and formatter.
+
+        Returns:
+            Formatted list of web links or ToolResult on error.
+        """
         try:
             links = ctx.client.get_issue_remote_links(self.key)
             return formatted(links, self.format, "weblinks")

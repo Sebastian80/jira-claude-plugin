@@ -110,7 +110,18 @@ class JiraIssueRichFormatter(RichFormatter):
 
 
 class JiraIssueAIFormatter(AIFormatter):
-    """AI-optimized issue formatting (compact, structured)."""
+    """AI-optimized issue formatting (compact, structured).
+
+    Produces token-efficient output suitable for LLM consumption.
+    Handles partial field responses (--fields) and expanded data (--expand changelog).
+
+    Output format:
+        ISSUE: KEY
+        type: Type Name
+        status: Status Name
+        ...
+        changelog_entries: N (if expanded)
+    """
 
     def format(self, data: Any) -> str:
         if isinstance(data, dict) and ("fields" in data or "key" in data):

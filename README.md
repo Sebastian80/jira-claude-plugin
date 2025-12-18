@@ -19,7 +19,11 @@ jira/
 ├── connector.py       # JiraConnector with circuit breaker
 ├── deps.py            # FastAPI dependencies
 ├── response.py        # Response formatting
-├── formatters.py      # Rich, AI, Markdown formatters
+├── formatters/        # Output formatters
+│   ├── base.py        # Base formatter classes
+│   ├── issue.py       # Issue formatters (Rich, AI, Markdown)
+│   ├── search.py      # Search result formatters
+│   └── ...            # Other type-specific formatters
 ├── routes/            # FastAPI routers
 │   ├── __init__.py    # Combined router
 │   └── help.py        # Self-documenting API
@@ -28,7 +32,7 @@ jira/
 │   ├── search.py      # SearchIssues (JQL)
 │   ├── comments.py    # GetComments, AddComment
 │   ├── workflow.py    # GetTransitions, Transition
-│   ├── links.py       # Issue/web links
+│   ├── links.py       # Issue links, web links (GetLinks, GetWebLinks)
 │   └── ...            # Other tools
 └── lib/               # Shared utilities
     ├── client.py      # Jira client factory
@@ -39,9 +43,24 @@ jira/
 
 Via CLI (through AI Tool Bridge):
 ```bash
+# Get issue details
 jira issue PROJ-123
+jira issue PROJ-123 --expand changelog    # Include change history
+jira issue PROJ-123 --fields summary,status  # Specific fields only
+
+# Search
 jira search --jql "assignee = currentUser()"
-jira transition PROJ-123 --target "In Progress"
+
+# Workflow
+jira transition PROJ-123 --transition "In Progress"
+
+# Links
+jira links PROJ-123         # Issue links
+jira weblinks PROJ-123      # Web/remote links
+
+# Help
+jira --help                 # List all commands
+jira issue --help           # Command-specific help
 ```
 
 ## Configuration
