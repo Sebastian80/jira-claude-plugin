@@ -248,6 +248,10 @@ class CreateIssue(Tool):
     labels: str | None = Field(None, description="Comma-separated labels")
     assignee: str | None = Field(None, description="Username or email of assignee")
     parent: str | None = Field(None, description="Parent issue key (for subtasks)")
+    sprint: int | None = Field(None, description="Sprint ID to add issue to")
+    components: str | None = Field(None, description="Comma-separated component names")
+    fix_versions: str | None = Field(None, alias="fixVersions", description="Comma-separated fix version names")
+    duedate: str | None = Field(None, description="Due date (YYYY-MM-DD)")
 
     class Meta:
         method = "POST"
@@ -274,6 +278,14 @@ class CreateIssue(Tool):
                 issue_fields["assignee"] = {"name": self.assignee}
         if self.parent:
             issue_fields["parent"] = {"key": self.parent}
+        if self.sprint:
+            issue_fields["customfield_10480"] = self.sprint
+        if self.components:
+            issue_fields["components"] = [{"name": c.strip()} for c in self.components.split(",")]
+        if self.fix_versions:
+            issue_fields["fixVersions"] = [{"name": v.strip()} for v in self.fix_versions.split(",")]
+        if self.duedate:
+            issue_fields["duedate"] = self.duedate
 
         try:
             result = ctx.client.create_issue(fields=issue_fields)

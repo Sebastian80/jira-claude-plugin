@@ -59,6 +59,23 @@ jira help search                             # Command-specific help
 --format json      # Raw API response
 ```
 
+## Creating Issues
+
+```bash
+# Basic
+jira create --project PROJ --type Task --summary "New task"
+
+# With sprint (use sprint ID)
+jira create --project PROJ --type Task --summary "Task" --sprint 901
+
+# Full example
+jira create --project PROJ --type Bug --summary "Fix login" \
+  --assignee john --priority High --sprint 901 \
+  --components "Backend" --fixVersions "v2.0" --duedate 2025-12-31
+```
+
+**Parameters:** `--project`, `--type`, `--summary` (required), `--description`, `--priority`, `--labels`, `--assignee`, `--sprint`, `--components`, `--fixVersions`, `--duedate`, `--parent`
+
 ## v1.2.0 Features
 
 ### Bulk Fetch

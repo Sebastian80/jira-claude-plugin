@@ -15,9 +15,17 @@ jira issue PROJ-123 --include-links           # Include linked issues
 jira issues PROJ-1,PROJ-2,PROJ-3              # Comma-separated
 jira issues "PROJ-1 PROJ-2 PROJ-3"            # Space-separated
 
-# Create/Update
+# Create issue
 jira create --project PROJ --type Task --summary "New task"
-jira update PROJ-123 --summary "Updated title"
+jira create --project PROJ --type Bug --summary "Bug" --sprint 901
+jira create --project PROJ --type Story --summary "Story" \
+  --assignee john --priority High --duedate 2025-12-31
+jira create --project PROJ --type Task --summary "Task" \
+  --components "Backend,API" --fixVersions "v2.0"
+
+# Update issue
+jira issue PROJ-123 --summary "Updated title"
+jira issue PROJ-123 --assignee jane --priority Low
 ```
 
 ## Search
