@@ -4,6 +4,7 @@ Jira Issue formatters.
 Provides Rich, AI, and Markdown formatters for single issue display.
 """
 
+import re
 from typing import Any
 
 from rich.console import Group
@@ -24,6 +25,26 @@ from .base import (
 )
 
 __all__ = ["JiraIssueRichFormatter", "JiraIssueAIFormatter", "JiraIssueMarkdownFormatter"]
+
+# Pattern for Jira issue keys: PROJECT-123
+_ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
+
+
+def _is_issue_data(data: dict) -> bool:
+    """Check if data looks like a Jira issue response.
+
+    Args:
+        data: Dictionary to check
+
+    Returns:
+        True if data appears to be a Jira issue (has fields or valid issue key)
+    """
+    if "fields" in data:
+        return True
+    key = data.get("key")
+    if isinstance(key, str) and _ISSUE_KEY_PATTERN.match(key):
+        return True
+    return False
 
 
 def _get_nested(data: dict, *keys: str, default: str = "?") -> str:
@@ -54,7 +75,7 @@ class JiraIssueRichFormatter(RichFormatter):
     """Rich terminal issue formatting with panels and colors."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, dict) and ("fields" in data or "key" in data):
+        if isinstance(data, dict) and _is_issue_data(data):
             return self._format_issue(data)
         return super().format(data)
 
@@ -148,7 +169,7 @@ class JiraIssueAIFormatter(AIFormatter):
     """
 
     def format(self, data: Any) -> str:
-        if isinstance(data, dict) and ("fields" in data or "key" in data):
+        if isinstance(data, dict) and _is_issue_data(data):
             return self._format_issue(data)
         return super().format(data)
 
@@ -191,7 +212,7 @@ class JiraIssueMarkdownFormatter(MarkdownFormatter):
     """Markdown issue formatting."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, dict) and ("fields" in data or "key" in data):
+        if isinstance(data, dict) and _is_issue_data(data):
             return self._format_issue(data)
         return super().format(data)
 
