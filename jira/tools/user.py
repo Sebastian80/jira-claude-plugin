@@ -14,7 +14,7 @@ from toolbus.tools import Tool, ToolContext, ToolResult
 
 from ..response import formatted
 
-__all__ = ["GetCurrentUser", "GetHealth"]
+__all__ = ["GetCurrentUser", "GetCurrentUserAlias", "GetHealth"]
 
 
 class GetCurrentUser(Tool):
@@ -25,6 +25,24 @@ class GetCurrentUser(Tool):
     class Meta:
         method = "GET"
         path = "/user/me"
+        tags = ["user"]
+
+    async def execute(self, ctx: ToolContext) -> Any:
+        try:
+            user = ctx.client.myself()
+            return formatted(user, self.format, "user")
+        except Exception as e:
+            return ToolResult(error=str(e), status=500)
+
+
+class GetCurrentUserAlias(Tool):
+    """Get current authenticated user (alias for /user/me)."""
+
+    format: str = Field("ai", description="Output format: json, rich, ai, markdown")
+
+    class Meta:
+        method = "GET"
+        path = "/user"
         tags = ["user"]
 
     async def execute(self, ctx: ToolContext) -> Any:

@@ -50,8 +50,12 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(scope="session", autouse=True)
 def ensure_daemon_running():
     """Ensure bridge daemon is running before tests."""
+    # Use full path to avoid collision with /usr/sbin/bridge (network tool)
+    bridge_venv = Path.home() / ".claude/plugins/marketplaces/sebastian-marketplace/plugins/ai-tool-bridge/.venv"
+    bridge_cmd = bridge_venv / "bin/bridge"
+
     result = subprocess.run(
-        ["bridge", "health"],
+        [str(bridge_cmd), "health"],
         capture_output=True,
         text=True
     )

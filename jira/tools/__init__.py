@@ -16,7 +16,7 @@ from .projects import GetProject, GetProjects
 from .components import CreateComponent, DeleteComponent, GetComponent, GetComponents
 from .versions import CreateVersion, GetVersion, GetVersions, UpdateVersion
 from .metadata import GetFields, GetFilter, GetFilters, GetPriorities, GetStatus, GetStatuses
-from .user import GetCurrentUser, GetHealth
+from .user import GetCurrentUser, GetCurrentUserAlias, GetHealth
 
 # All tools for registration
 ALL_TOOLS = [
@@ -71,6 +71,7 @@ ALL_TOOLS = [
     GetFilter,
     # User
     GetCurrentUser,
+    GetCurrentUserAlias,
     GetHealth,
 ]
 
@@ -127,5 +128,6 @@ __all__ = [
     "GetFilter",
     # User
     "GetCurrentUser",
+    "GetCurrentUserAlias",
     "GetHealth",
 ]

@@ -108,13 +108,26 @@ class FormatterRegistry:
         self._formatters[key] = formatter
 
     def get(self, format_name: str, plugin: str | None = None, data_type: str | None = None) -> Formatter | None:
-        """Get formatter by format name, optionally filtered by plugin and data_type."""
+        """Get formatter by format name, optionally filtered by plugin and data_type.
+
+        Args:
+            format_name: The format (e.g., "ai", "rich", "markdown")
+            plugin: Plugin name (e.g., "jira")
+            data_type: Data type (e.g., "issue", "user", "comments")
+
+        Returns:
+            Formatter if found, None otherwise.
+
+        Note:
+            When data_type is specified, only exact matches are returned.
+            We do NOT fall back to other data_types to avoid returning
+            wrong formatters (e.g., issue formatter for user data).
+        """
         if plugin and data_type:
             key = f"{plugin}:{data_type}:{format_name}"
-            if key in self._formatters:
-                return self._formatters[key]
-        # Fallback: try without data_type
-        if plugin:
+            return self._formatters.get(key)
+        # Only do fallback search if data_type was NOT specified
+        if plugin and data_type is None:
             for key, fmt in self._formatters.items():
                 if key.startswith(f"{plugin}:") and key.endswith(f":{format_name}"):
                     return fmt

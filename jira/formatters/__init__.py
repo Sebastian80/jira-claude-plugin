@@ -6,6 +6,11 @@ Formatters are plugin-local (not imported from bridge).
 """
 
 from .attachments import JiraAttachmentsAIFormatter, JiraAttachmentsRichFormatter
+from .health import (
+    JiraHealthAIFormatter,
+    JiraHealthMarkdownFormatter,
+    JiraHealthRichFormatter,
+)
 from .base import (
     AIFormatter,
     Formatter,
@@ -38,6 +43,11 @@ from .search import (
     JiraSearchRichFormatter,
 )
 from .transitions import JiraTransitionsAIFormatter, JiraTransitionsRichFormatter
+from .user import (
+    JiraUserAIFormatter,
+    JiraUserMarkdownFormatter,
+    JiraUserRichFormatter,
+)
 from .watchers import JiraWatchersAIFormatter, JiraWatchersRichFormatter
 from .weblinks import JiraWebLinksAIFormatter, JiraWebLinksRichFormatter
 from .worklogs import JiraWorklogsAIFormatter, JiraWorklogsRichFormatter
@@ -95,6 +105,14 @@ __all__ = [
     # Worklogs formatters
     "JiraWorklogsRichFormatter",
     "JiraWorklogsAIFormatter",
+    # User formatters
+    "JiraUserRichFormatter",
+    "JiraUserAIFormatter",
+    "JiraUserMarkdownFormatter",
+    # Health formatters
+    "JiraHealthRichFormatter",
+    "JiraHealthAIFormatter",
+    "JiraHealthMarkdownFormatter",
     # Registration function
     "register_jira_formatters",
 ]
@@ -143,3 +161,13 @@ def register_jira_formatters():
     # Worklogs formatters
     formatter_registry.register("jira", "worklogs", "rich", JiraWorklogsRichFormatter())
     formatter_registry.register("jira", "worklogs", "ai", JiraWorklogsAIFormatter())
+
+    # User formatters
+    formatter_registry.register("jira", "user", "rich", JiraUserRichFormatter())
+    formatter_registry.register("jira", "user", "ai", JiraUserAIFormatter())
+    formatter_registry.register("jira", "user", "markdown", JiraUserMarkdownFormatter())
+
+    # Health formatters
+    formatter_registry.register("jira", "health", "rich", JiraHealthRichFormatter())
+    formatter_registry.register("jira", "health", "ai", JiraHealthAIFormatter())
+    formatter_registry.register("jira", "health", "markdown", JiraHealthMarkdownFormatter())
