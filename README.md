@@ -1,66 +1,71 @@
 # Jira Plugin for AI Tool Bridge
 
-Issue tracking and workflow automation plugin for the AI Tool Bridge daemon.
+**Version 1.2.0** | Issue tracking and workflow automation for AI agents.
+
+## Overview
+
+A plugin that enables AI agents to interact with Jira through a unified CLI interface. Designed for token-efficient communication with LLMs while providing rich terminal output for humans.
+
+```
+┌─────────────────┐     ┌───────────────────┐     ┌─────────────┐
+│  Claude/AI      │────▶│  AI Tool Bridge   │────▶│  Jira API   │
+│  Agent          │◀────│  (FastAPI daemon) │◀────│  Cloud/DC   │
+└─────────────────┘     └───────────────────┘     └─────────────┘
+        │                        │
+        │                        ▼
+        │               ┌───────────────────┐
+        └──────────────▶│  jira CLI         │
+                        │  (thin wrapper)   │
+                        └───────────────────┘
+```
+
+## Quick Start
+
+```bash
+# Get an issue (AI-optimized format by default)
+jira issue PROJ-123
+
+# Bulk fetch multiple issues (parallel, fast)
+jira issues HMKG-1,HMKG-2,HMKG-3
+
+# Search with JQL
+jira search --jql 'assignee = currentUser()'
+
+# Transition an issue
+jira transition PROJ-123 --transition "In Progress"
+
+# Add a comment
+jira comment PROJ-123 --body "Work completed"
+
+# Full command list
+jira --help
+```
 
 ## Features
 
-- **Issue Operations**: Get, create, update issues
-- **Search**: JQL queries with pagination
-- **Workflow**: Transitions, status changes
-- **Comments & Worklogs**: Time tracking, comments
-- **Links**: Issue links, web links
-- **Project Data**: Components, versions, metadata
+| Category | Capabilities |
+|----------|--------------|
+| **Issues** | Get, create, update, bulk fetch (parallel) |
+| **Search** | JQL queries with pagination |
+| **Workflow** | Transitions, status changes |
+| **Comments** | List, add comments |
+| **Time Tracking** | Worklogs, time spent |
+| **Links** | Issue links, web links |
+| **Project Data** | Components, versions, metadata |
 
-## Architecture
+## Output Formats
 
-```
-jira/
-├── plugin.py          # PluginProtocol implementation
-├── connector.py       # JiraConnector with circuit breaker
-├── deps.py            # FastAPI dependencies
-├── response.py        # Response formatting
-├── formatters/        # Output formatters
-│   ├── base.py        # Base formatter classes
-│   ├── issue.py       # Issue formatters (Rich, AI, Markdown)
-│   ├── search.py      # Search result formatters
-│   └── ...            # Other type-specific formatters
-├── routes/            # FastAPI routers
-│   ├── __init__.py    # Combined router
-│   └── help.py        # Self-documenting API
-├── tools/             # Pydantic Tool classes
-│   ├── issues.py      # GetIssue, CreateIssue, UpdateIssue
-│   ├── search.py      # SearchIssues (JQL)
-│   ├── comments.py    # GetComments, AddComment
-│   ├── workflow.py    # GetTransitions, Transition
-│   ├── links.py       # Issue links, web links (GetLinks, GetWebLinks)
-│   └── ...            # Other tools
-└── lib/               # Shared utilities
-    ├── client.py      # Jira client factory
-    └── config.py      # Environment config
-```
+| Format | Use Case | Example |
+|--------|----------|---------|
+| `ai` | LLM consumption (default) | Token-efficient structured text |
+| `rich` | Human terminal | Colored panels, tables, icons |
+| `markdown` | Documentation | Markdown tables |
+| `json` | Scripts/automation | Raw API response |
 
-## Usage
-
-Via CLI (through AI Tool Bridge):
 ```bash
-# Get issue details
-jira issue PROJ-123
-jira issue PROJ-123 --expand changelog    # Include change history
-jira issue PROJ-123 --fields summary,status  # Specific fields only
-
-# Search
-jira search --jql "assignee = currentUser()"
-
-# Workflow
-jira transition PROJ-123 --transition "In Progress"
-
-# Links
-jira links PROJ-123         # Issue links
-jira weblinks PROJ-123      # Web/remote links
-
-# Help
-jira --help                 # List all commands
-jira issue --help           # Command-specific help
+jira issue PROJ-123 --format ai       # Default
+jira issue PROJ-123 --format rich     # Terminal colors
+jira issue PROJ-123 --format json     # Raw JSON
 ```
 
 ## Configuration
@@ -80,47 +85,60 @@ JIRA_URL=https://jira.company.com
 JIRA_PERSONAL_TOKEN=your-pat
 ```
 
-## Output Formats
+## Documentation
 
-| Format | Description |
-|--------|-------------|
-| `ai` | Token-efficient for LLM consumption (default) |
-| `rich` | Colored terminal output |
-| `markdown` | Markdown tables |
-| `json` | Raw JSON |
+| Document | Purpose |
+|----------|---------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Deep dive into component relationships |
+| [EXTENDING.md](EXTENDING.md) | Guide to adding new functionality |
+| [jira/README.md](jira/README.md) | Plugin internals and lifecycle |
+| [jira/tools/README.md](jira/tools/README.md) | Tool class patterns |
+| [jira/formatters/README.md](jira/formatters/README.md) | Output formatting system |
+
+## Project Structure
+
+```
+jira-plugin/
+├── README.md              # This file
+├── ARCHITECTURE.md        # How everything connects
+├── EXTENDING.md           # Adding new functionality
+├── bin/
+│   └── jira               # CLI wrapper script
+├── jira/                  # Main package
+│   ├── plugin.py          # Entry point, lifecycle
+│   ├── connector.py       # Jira API client wrapper
+│   ├── deps.py            # FastAPI dependencies
+│   ├── response.py        # Response formatting
+│   ├── tools/             # CLI commands as Tool classes
+│   ├── formatters/        # Output formatters
+│   ├── routes/            # Help endpoint
+│   └── lib/               # Shared utilities
+├── skills/                # Claude Code skills
+│   ├── jira/              # Main Jira skill
+│   └── jira-syntax/       # Wiki markup skill
+└── tests/                 # Test suite
+```
 
 ## Development
 
 ```bash
+cd ~/.claude/plugins/marketplaces/sebastian-marketplace/plugins/jira
+
 # Run tests
-pytest tests/unit/ -v
+uv run pytest tests/ -v
 
-# All 71 tests should pass
+# Reload plugin after changes
+~/.claude/.../ai-tool-bridge/.venv/bin/bridge reload
+
+# Check plugin health
+jira health
 ```
 
-## Tool Pattern
+## Version History
 
-Tools follow the Pydantic-based pattern:
-
-```python
-class GetIssue(Tool):
-    """Get issue details by key."""
-
-    key: str = Field(..., description="Issue key like PROJ-123")
-    format: str = Field("ai", description="Output format")
-
-    class Meta:
-        method = "GET"
-        path = "/issue/{key}"
-        tags = ["issues"]
-
-    async def execute(self, ctx: ToolContext) -> Any:
-        try:
-            issue = ctx.client.issue(self.key)
-            return formatted(issue, self.format, "issue")
-        except Exception as e:
-            return ToolResult(error=str(e), status=500)
-```
+- **1.2.0**: Bulk issue fetch with parallel execution, field validation, linked issues expansion
+- **1.1.0**: User/health formatters, registry fix, route tests
+- **1.0.0**: Initial release
 
 ## License
 

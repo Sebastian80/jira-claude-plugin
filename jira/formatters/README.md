@@ -1,37 +1,58 @@
 # Formatters
 
-Transform Jira API responses into different output formats.
+Transform Jira API responses into different output formats optimized for different consumers.
 
 ## Overview
 
 ```
-API Response (dict)
-       │
-       ▼
-formatted(data, "ai", "issue")
-       │
-       ▼
-FormatterRegistry lookup
-       │
-       ▼
-JiraIssueAIFormatter.format(data)
-       │
-       ▼
-Formatted string or ToolResult
+                    Jira API Response (dict)
+                              │
+                              ▼
+                    formatted(data, "ai", "issue")
+                              │
+                              ▼
+                    FormatterRegistry lookup
+                    key: "jira:issue:ai"
+                              │
+                              ▼
+                    JiraIssueAIFormatter.format(data)
+                              │
+                              ▼
+                    Token-efficient string output
 ```
 
 ## Available Formats
 
-| Format | Purpose | Output |
-|--------|---------|--------|
-| `json` | Raw data | JSON string |
-| `rich` | Terminal | Colored tables/panels (Rich library) |
-| `ai` | AI context | Token-efficient structured text |
-| `markdown` | Documentation | Markdown tables |
+| Format | Purpose | Consumer | Characteristics |
+|--------|---------|----------|-----------------|
+| `ai` | LLM consumption | Claude, GPT | Token-efficient, structured, no decoration |
+| `rich` | Human terminal | Developer | Colors, icons, panels, tables |
+| `markdown` | Documentation | PRs, docs | Markdown tables, links |
+| `json` | Automation | Scripts | Raw API data |
+
+## File Structure
+
+```
+formatters/
+├── __init__.py      # Registry, exports, register_jira_formatters()
+├── base.py          # Base classes, utilities, icons/styles
+├── issue.py         # Single issue (with linked issues, warnings)
+├── search.py        # Search results, bulk fetch results
+├── transitions.py   # Workflow transitions
+├── comments.py      # Issue comments
+├── worklogs.py      # Time tracking worklogs
+├── links.py         # Issue-to-issue links
+├── linktypes.py     # Available link types
+├── weblinks.py      # External web links
+├── watchers.py      # Issue watchers
+├── attachments.py   # File attachments
+├── user.py          # User info
+└── health.py        # Health check status
+```
 
 ## Using Formatters
 
-In a Tool's execute method:
+In a Tool's `execute()` method:
 
 ```python
 from ..response import formatted
@@ -40,262 +61,319 @@ async def execute(self, ctx: ToolContext) -> Any:
     issue = ctx.client.issue(self.key)
     return formatted(issue, self.format, "issue")
     #                │       │            │
-    #                │       │            └─ entity type (registry key)
-    #                │       └─ format name from CLI --format param
-    #                └─ raw API data
+    #                │       │            └─ Data type (registry key)
+    #                │       └─ Format from --format param
+    #                └─ Raw API data
 ```
 
-The `formatted()` helper:
-1. Looks up formatter in registry: `("jira", entity_type, format_name)`
-2. Falls back to JSON if not found
-3. Returns formatted output
+## Format Examples
 
-## File Structure
+### Issue - AI Format (Default)
 
 ```
-formatters/
-├── __init__.py      # Registry, exports, register_jira_formatters()
-├── base.py          # Base classes, utilities, registry
-├── issue.py         # JiraIssueRichFormatter, JiraIssueAIFormatter, ...
-├── search.py        # JiraSearchRichFormatter, JiraSearchAIFormatter, ...
-├── transitions.py   # JiraTransitionsRichFormatter, JiraTransitionsAIFormatter
-├── comments.py      # JiraCommentsRichFormatter, JiraCommentsAIFormatter
-├── worklogs.py      # JiraWorklogsRichFormatter, JiraWorklogsAIFormatter
-├── links.py         # JiraLinksRichFormatter, JiraLinksAIFormatter
-├── linktypes.py     # JiraLinkTypesRichFormatter, JiraLinkTypesAIFormatter
-├── watchers.py      # JiraWatchersRichFormatter, JiraWatchersAIFormatter
-├── attachments.py   # JiraAttachmentsRichFormatter, JiraAttachmentsAIFormatter
-└── weblinks.py      # JiraWebLinksRichFormatter, JiraWebLinksAIFormatter
+ISSUE: PROJ-123
+type: Bug
+status: In Progress
+priority: High
+summary: Fix login redirect after password reset
+assignee: John Doe
+description: Users are redirected to homepage instead of...
+linked_issues: 2
+  - blocks PROJ-124: [Open] Implement SSO
+  - is blocked by PROJ-100: [Done] Auth refactor
+WARNING: All requested fields returned None - check field names
 ```
 
-## Formatter Base Classes
+### Issue - Rich Format
 
-### base.py
+```
+╭──────────────────────────────────────────────────────────╮
+│ 🐛  PROJ-123  Bug                                        │
+├──────────────────────────────────────────────────────────┤
+│ Fix login redirect after password reset                  │
+│                                                          │
+│ Status    ► In Progress                                  │
+│ Priority  ▲ High                                         │
+│ Assignee  John Doe                                       │
+│ Reporter  Jane Smith                                     │
+╰──────────────────────────────────────────────────────────╯
+```
+
+### Issue - Markdown Format
+
+```markdown
+## PROJ-123: Fix login redirect after password reset
+
+| Field | Value |
+|-------|-------|
+| Type | Bug |
+| Status | In Progress |
+| Priority | High |
+| Assignee | John Doe |
+
+### Description
+
+Users are redirected to homepage instead of...
+```
+
+### Search Results - AI Format
+
+```
+FOUND: 15 issues
+- PROJ-123: [In Progress] Fix login redirect after password reset
+- PROJ-124: [Open] Implement SSO integration
+- PROJ-125: [Done] Update user documentation
+...
+MISSING: PROJ-999, PROJ-888
+WARNING: Issues not found: PROJ-999, PROJ-888
+```
+
+## v1.2.0 Features
+
+### Linked Issues Display
+
+When using `--include-links`, linked issues are shown:
 
 ```python
-class Formatter(ABC):
-    """Abstract base for all formatters."""
-    @abstractmethod
-    def format(self, data: Any) -> str:
-        pass
+# AI format output includes:
+linked_issues: 3
+  - blocks PROJ-124: [Open] SSO implementation
+  - is blocked by PROJ-100: [Done] Auth refactor
+  - relates to PROJ-150: [In Progress] Security audit
+```
 
-class JsonFormatter(Formatter):
-    """JSON output - works for any data."""
-    def format(self, data: Any) -> str:
-        return json.dumps(data, indent=2, default=str)
+### Field Validation Warnings
 
-class RichFormatter(Formatter):
-    """Rich terminal output with colors/tables."""
-    @abstractmethod
-    def format(self, data: Any) -> str:
-        pass
+When requested fields return None, a warning is added:
 
+```python
+# Tool validates fields against KNOWN_FIELDS set
+WARNING: Unknown fields (may be custom): customfield_10001, foobar
+WARNING: All requested fields returned None - check field names
+```
+
+### Bulk Fetch Missing Issues
+
+GetIssues reports which keys weren't found:
+
+```python
+# Response includes missing keys
+FOUND: 18 issues
+...
+MISSING: PROJ-999, PROJ-888
+WARNING: Issues not found: PROJ-999, PROJ-888
+```
+
+## Base Classes
+
+### Formatter (base.py)
+
+```python
+class Formatter:
+    """Base formatter with default implementations."""
+
+    def format(self, data: Any) -> str:
+        """Format data as string. Override in subclasses."""
+        return str(data)
+
+    def format_error(self, message: str, hint: str | None = None) -> str:
+        """Format error message."""
+        if hint:
+            return f"Error: {message}\nHint: {hint}"
+        return f"Error: {message}"
+```
+
+### AIFormatter
+
+```python
 class AIFormatter(Formatter):
     """Token-efficient format for AI consumption."""
-    @abstractmethod
-    def format(self, data: Any) -> str:
-        pass
 
+    def format(self, data: Any) -> str:
+        # Default: compact JSON
+        return json.dumps(data, separators=(",", ":"), default=str)
+```
+
+### RichFormatter
+
+```python
+class RichFormatter(Formatter):
+    """Rich terminal output with colors/tables."""
+
+    def format(self, data: Any) -> str:
+        # Default: pretty JSON
+        return json.dumps(data, indent=2, default=str)
+```
+
+### MarkdownFormatter
+
+```python
 class MarkdownFormatter(Formatter):
     """Markdown table output."""
-    @abstractmethod
-    def format(self, data: Any) -> str:
-        pass
-```
-
-## Adding a New Formatter
-
-### 1. Create formatter class
-
-```python
-# formatters/myentity.py
-
-from .base import AIFormatter, RichFormatter, Table, Panel, render_to_string
-
-class MyEntityRichFormatter(RichFormatter):
-    """Rich terminal output for MyEntity."""
 
     def format(self, data: Any) -> str:
-        if not data:
-            return "No data"
-
-        table = Table(title="My Entity")
-        table.add_column("Field", style="cyan")
-        table.add_column("Value")
-
-        table.add_row("Name", data.get("name", ""))
-        table.add_row("Status", data.get("status", ""))
-
-        return render_to_string(table)
-
-
-class MyEntityAIFormatter(AIFormatter):
-    """AI-friendly output for MyEntity."""
-
-    def format(self, data: Any) -> str:
-        if not data:
-            return "No data"
-
-        lines = [
-            f"Name: {data.get('name', '')}",
-            f"Status: {data.get('status', '')}",
-        ]
-        return "\n".join(lines)
+        # Default: JSON in code block
+        return f"```json\n{json.dumps(data, indent=2)}\n```"
 ```
 
-### 2. Export in __init__.py
-
-```python
-# formatters/__init__.py
-
-from .myentity import MyEntityAIFormatter, MyEntityRichFormatter
-
-__all__ = [
-    # ...existing...
-    "MyEntityRichFormatter",
-    "MyEntityAIFormatter",
-]
-```
-
-### 3. Register in register_jira_formatters()
-
-```python
-# formatters/__init__.py
-
-def register_jira_formatters():
-    # ...existing...
-
-    # MyEntity formatters
-    formatter_registry.register("jira", "myentity", "rich", MyEntityRichFormatter())
-    formatter_registry.register("jira", "myentity", "ai", MyEntityAIFormatter())
-```
-
-### 4. Use in Tool
-
-```python
-# tools/myentity.py
-
-async def execute(self, ctx: ToolContext) -> Any:
-    data = ctx.client.get_myentity(self.key)
-    return formatted(data, self.format, "myentity")
-    #                                    └─ matches registry key
-```
-
-## Registry
-
-The `FormatterRegistry` stores formatters by (plugin, entity, format):
-
-```python
-formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
-#                            │       │        │     │
-#                            │       │        │     └─ formatter instance
-#                            │       │        └─ format name
-#                            │       └─ entity type
-#                            └─ plugin name
-
-# Lookup
-formatter = formatter_registry.get("jira", "issue", "ai")
-output = formatter.format(data)
-```
-
-## Utility Functions (base.py)
+## Utility Functions
 
 ### render_to_string(renderable)
 
-Convert Rich object to string for CLI output:
+Convert Rich object to ANSI string:
 
 ```python
 from .base import render_to_string, Table
 
 table = Table()
-table.add_row("foo", "bar")
+table.add_row("Key", "PROJ-123")
 output = render_to_string(table)  # Returns ANSI-colored string
 ```
 
-### make_issue_link(key, base_url)
+### make_issue_link(key)
 
-Generate clickable issue URL:
+Create clickable terminal hyperlink:
 
 ```python
-url = make_issue_link("PROJ-123", "https://jira.example.com")
-# Returns: "https://jira.example.com/browse/PROJ-123"
+from .base import make_issue_link
+
+link = make_issue_link("PROJ-123")
+# Returns Rich Text with hyperlink to Jira issue
 ```
 
-### Style helpers
+### Style Helpers
 
 ```python
 from .base import get_status_style, get_priority_style, get_type_icon
 
-get_status_style("Done")      # Returns: "green"
-get_status_style("In Progress")  # Returns: "yellow"
-get_priority_style("High")    # Returns: "red"
-get_type_icon("Bug")          # Returns: "🐛"
-get_type_icon("Task")         # Returns: "✓"
+get_type_icon("Bug")           # "🐛"
+get_type_icon("Task")          # "☑️"
+get_type_icon("Story")         # "📗"
+get_type_icon("Epic")          # "⚡"
+
+get_status_style("Done")       # ("✓", "green")
+get_status_style("In Progress") # ("►", "yellow")
+get_status_style("Blocked")    # ("✗", "red")
+
+get_priority_style("High")     # ("▲", "yellow")
+get_priority_style("Critical") # ("▲▲", "bold red")
 ```
 
-## Format Examples
+## Registry
 
-### Issue - JSON
+### Registration
 
-```json
-{
-  "key": "PROJ-123",
-  "fields": {
-    "summary": "Fix login bug",
-    "status": {"name": "In Progress"},
-    "assignee": {"displayName": "John"}
-  }
-}
+```python
+# In formatters/__init__.py
+
+def register_jira_formatters():
+    # Issue formatters
+    formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
+    formatter_registry.register("jira", "issue", "rich", JiraIssueRichFormatter())
+    formatter_registry.register("jira", "issue", "markdown", JiraIssueMarkdownFormatter())
+
+    # Search formatters (also used for bulk fetch)
+    formatter_registry.register("jira", "search", "ai", JiraSearchAIFormatter())
+    # ...
 ```
 
-### Issue - Rich
+### Lookup Rules
 
-```
-╭─────────────────────────────────────────╮
-│ 🐛 PROJ-123: Fix login bug              │
-├─────────────────────────────────────────┤
-│ Status:   In Progress                   │
-│ Assignee: John                          │
-│ Priority: High                          │
-╰─────────────────────────────────────────╯
-```
+```python
+# Exact match (when data_type specified)
+formatter_registry.get("ai", plugin="jira", data_type="issue")
+# Returns JiraIssueAIFormatter or None
 
-### Issue - AI
-
-```
-PROJ-123: Fix login bug
-Type: Bug | Status: In Progress | Priority: High
-Assignee: John
-Created: 2024-01-15 | Updated: 2024-01-16
-
-Description:
-Users cannot log in after password reset...
+# Plugin-wide fallback (when data_type=None)
+formatter_registry.get("ai", plugin="jira")
+# Returns first matching jira:*:ai formatter
 ```
 
-### Issue - Markdown
+**Important:** When `data_type` is specified, only exact matches are returned. This prevents returning the wrong formatter (e.g., issue formatter for user data).
 
-```markdown
-| Field | Value |
-|-------|-------|
-| Key | PROJ-123 |
-| Summary | Fix login bug |
-| Status | In Progress |
-| Assignee | John |
+## Adding a New Formatter
+
+### 1. Create Formatter Class
+
+```python
+# formatters/sprints.py
+
+from typing import Any
+from .base import (
+    AIFormatter, RichFormatter,
+    Table, box, render_to_string
+)
+
+class JiraSprintsAIFormatter(AIFormatter):
+    """AI-optimized sprint list formatting."""
+
+    def format(self, data: Any) -> str:
+        if not data:
+            return "NO_SPRINTS"
+
+        sprints = data if isinstance(data, list) else data.get("values", [])
+        lines = [f"SPRINTS: {len(sprints)}"]
+
+        for s in sprints:
+            state = s.get("state", "?")
+            name = s.get("name", "?")
+            goal = (s.get("goal") or "")[:40]
+            lines.append(f"- [{state}] {name}: {goal}")
+
+        return "\n".join(lines)
+
+
+class JiraSprintsRichFormatter(RichFormatter):
+    """Rich terminal sprint formatting."""
+
+    def format(self, data: Any) -> str:
+        # ... Rich table implementation
+```
+
+### 2. Register in __init__.py
+
+```python
+# formatters/__init__.py
+
+from .sprints import JiraSprintsAIFormatter, JiraSprintsRichFormatter
+
+__all__ = [
+    # ...existing...
+    "JiraSprintsAIFormatter",
+    "JiraSprintsRichFormatter",
+]
+
+def register_jira_formatters():
+    # ...existing...
+    formatter_registry.register("jira", "sprints", "ai", JiraSprintsAIFormatter())
+    formatter_registry.register("jira", "sprints", "rich", JiraSprintsRichFormatter())
+```
+
+### 3. Use in Tool
+
+```python
+# In tool execute():
+return formatted(data, self.format, "sprints")
+#                                    ^^^^^^^ Must match registry key
 ```
 
 ## Design Principles
 
-1. **AI format is default** - Token-efficient, structured, no decoration
-2. **Rich for humans** - Colors, panels, tables for terminal
-3. **JSON for scripts** - Raw data, no transformation
-4. **Markdown for docs** - Tables that render in docs/PRs
+1. **AI format is default** - Optimized for token efficiency
+2. **Structured over pretty** - AI format uses consistent patterns
+3. **Include context** - Warnings, linked issues, missing items
+4. **Human format is optional** - Rich/markdown for human consumers
+5. **JSON for scripts** - Raw data when programmatic access needed
 
-## Testing
+## Testing Formats
 
 ```bash
-# Test different formats
-jira issue PROJ-123 --format json
-jira issue PROJ-123 --format rich
+# Compare all formats
 jira issue PROJ-123 --format ai
+jira issue PROJ-123 --format rich
 jira issue PROJ-123 --format markdown
+jira issue PROJ-123 --format json
+
+# With linked issues
+jira issue PROJ-123 --include-links --format ai
 ```

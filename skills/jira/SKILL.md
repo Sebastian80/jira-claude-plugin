@@ -23,29 +23,73 @@ TICKET KEY MENTIONED = FETCH IT. NO EXCEPTIONS.
 
 If a ticket key (PROJ-123, HMKG-2064) appears anywhere - user message, file, git branch, error - **fetch it with `jira issue KEY`**. Fetching takes 2 seconds. Guessing wastes time.
 
-## Usage
+## Quick Reference
 
 ```bash
-jira issue PROJ-123                          # Get issue (default: ai format)
-jira search --jql 'assignee = currentUser()' # Search (use single quotes for JQL)
+# Single issue
+jira issue PROJ-123                          # Get issue (ai format)
+jira issue PROJ-123 --include-links          # Include linked issues
+jira issue PROJ-123 --expand changelog       # Include change history
+
+# Bulk fetch (parallel, fast)
+jira issues PROJ-1,PROJ-2,PROJ-3             # Multiple issues at once
+
+# Search
+jira search --jql 'assignee = currentUser()' # Use single quotes for JQL
+
+# Workflow
+jira transitions PROJ-123                    # List available transitions
 jira transition PROJ-123 --transition "In Progress"
-jira comment PROJ-123 --body "Done"
-jira worklog PROJ-123 --timeSpent 2h
+
+# Comments & Time
+jira comment PROJ-123 --body "Done"          # Add comment
+jira worklog PROJ-123 --timeSpent 2h         # Log time
+
+# Help
 jira --help                                  # Full command list
+jira help search                             # Command-specific help
 ```
 
 ## Output Formats
 
 ```bash
---format ai        # Default: token-efficient
---format rich      # Terminal colors
---format markdown  # Tables
+--format ai        # Default: token-efficient for LLMs
+--format rich      # Terminal colors and panels
+--format markdown  # Markdown tables
 --format json      # Raw API response
+```
+
+## v1.2.0 Features
+
+### Bulk Fetch
+
+Fetch multiple issues in parallel:
+```bash
+jira issues HMKG-1,HMKG-2,HMKG-3
+jira issues "HMKG-1 HMKG-2 HMKG-3"
+```
+
+### Linked Issues
+
+Include linked issue summaries:
+```bash
+jira issue PROJ-123 --include-links
+```
+
+### Field Validation
+
+Warns about invalid field names:
+```bash
+jira issue PROJ-123 --fields summary,foobar
+# WARNING: Unknown fields (may be custom): foobar
 ```
 
 ## Related Skills
 
-**jira-syntax**: Jira wiki markup (NOT Markdown): `*bold*`, `h2. Heading`, `{code:python}...{code}`
+**jira-syntax**: Jira wiki markup (NOT Markdown)
+- `*bold*` not `**bold**`
+- `h2. Heading` not `## Heading`
+- `{code:python}...{code}` not triple backticks
 
 ## References
 
@@ -54,3 +98,21 @@ jira --help                                  # Full command list
 - [localization.md](references/localization.md) - German/localized status names
 - [troubleshooting.md](references/troubleshooting.md) - Common issues
 
+## Authentication
+
+Credentials in `~/.env.jira`:
+
+**Jira Cloud:**
+```bash
+JIRA_URL=https://yourcompany.atlassian.net
+JIRA_USERNAME=your-email@example.com
+JIRA_API_TOKEN=your-api-token-here
+```
+
+**Jira Server/DC:**
+```bash
+JIRA_URL=https://jira.yourcompany.com
+JIRA_PERSONAL_TOKEN=your-personal-access-token
+```
+
+Verify with: `jira user me`
