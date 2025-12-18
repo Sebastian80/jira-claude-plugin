@@ -176,6 +176,8 @@ class GetIssues(Tool):
         tags = ["issues"]
 
     async def execute(self, ctx: ToolContext) -> Any:
+        import asyncio
+
         # Parse keys - support comma, space, or mixed separators
         raw_keys = self.keys.replace(",", " ").split()
         keys_list = [k.strip() for k in raw_keys if k.strip()]
@@ -186,25 +188,41 @@ class GetIssues(Tool):
         if len(keys_list) > 50:
             return ToolResult(error="Maximum 50 issues per request", status=400)
 
+        params = {}
+        if self.fields:
+            params["fields"] = self.fields
+
+        def fetch_one(key: str) -> tuple[str, dict | None, str | None]:
+            """Fetch single issue, return (key, issue_data, error_msg)."""
+            try:
+                issue = ctx.client.issue(key, **params)
+                return (key, issue, None)
+            except Exception as e:
+                err_str = str(e).lower()
+                if "does not exist" in err_str or "404" in err_str or "nicht" in err_str:
+                    return (key, None, "not_found")
+                return (key, None, str(e))
+
         try:
-            # Fetch issues individually (more robust than JQL which fails on invalid keys)
+            # Parallel fetch using thread pool (client is sync)
+            tasks = [asyncio.to_thread(fetch_one, key) for key in keys_list]
+            results = await asyncio.gather(*tasks)
+
             issues = []
             missing = []
-            params = {}
-            if self.fields:
-                params["fields"] = self.fields
+            errors = []
 
-            for key in keys_list:
-                try:
-                    issue = ctx.client.issue(key, **params)
-                    issues.append(issue)
-                except Exception as e:
-                    err_str = str(e).lower()
-                    if "does not exist" in err_str or "404" in err_str or "nicht" in err_str:
-                        missing.append(key)
-                    else:
-                        # Re-raise non-404 errors
-                        raise
+            for key, issue_data, error in results:
+                if issue_data:
+                    issues.append(issue_data)
+                elif error == "not_found":
+                    missing.append(key)
+                else:
+                    errors.append(f"{key}: {error}")
+
+            # If all failed with real errors, report
+            if errors and not issues:
+                return ToolResult(error=f"Fetch failed: {'; '.join(errors)}", status=500)
 
             response = {
                 "total": len(issues),
