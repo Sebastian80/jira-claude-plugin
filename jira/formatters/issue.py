@@ -205,6 +205,19 @@ class JiraIssueAIFormatter(AIFormatter):
                     )
                     lines.append(f"  - {created} {author}: {changes}")
 
+        # Handle linked issues (from --include-links)
+        if issue.get("_linked_issues"):
+            lines.append(f"linked_issues: {len(issue['_linked_issues'])}")
+            for linked in issue["_linked_issues"]:
+                link_type = linked.get("link_type", "")
+                status = linked.get("status", "?")
+                summary = (linked.get("summary") or "?")[:50]
+                lines.append(f"  - {link_type} {linked['key']}: [{status}] {summary}")
+
+        # Show warning if present (field validation issues)
+        if issue.get("_warning"):
+            lines.append(f"WARNING: {issue['_warning']}")
+
         return "\n".join(lines)
 
 

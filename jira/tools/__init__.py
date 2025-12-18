@@ -4,7 +4,7 @@ Jira Tools - Pydantic-based tool definitions.
 All Jira operations as Tool classes for use with the bridge tools framework.
 """
 
-from .issues import CreateIssue, GetIssue, UpdateIssue
+from .issues import CreateIssue, GetIssue, GetIssues, UpdateIssue
 from .search import SearchIssues
 from .comments import AddComment, GetComments
 from .workflow import GetTransitions, Transition, GetWorkflows
@@ -22,6 +22,7 @@ from .user import GetCurrentUser, GetCurrentUserAlias, GetHealth
 ALL_TOOLS = [
     # Issues
     GetIssue,
+    GetIssues,
     CreateIssue,
     UpdateIssue,
     # Search
@@ -79,6 +80,7 @@ __all__ = [
     "ALL_TOOLS",
     # Issues
     "GetIssue",
+    "GetIssues",
     "CreateIssue",
     "UpdateIssue",
     # Search

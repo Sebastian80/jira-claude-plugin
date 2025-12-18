@@ -72,12 +72,29 @@ class JiraSearchAIFormatter(AIFormatter):
     """AI-optimized search results."""
 
     def format(self, data: Any) -> str:
+        # Handle dict with 'issues' key (from GetIssues bulk fetch)
+        if isinstance(data, dict) and "issues" in data:
+            return self._format_search_response(data)
+        # Handle direct list of issues
         if isinstance(data, list):
             if not data:
                 return "NO_ISSUES_FOUND"
             if isinstance(data[0], dict) and "fields" in data[0]:
                 return self._format_search(data)
         return super().format(data)
+
+    def _format_search_response(self, response: dict) -> str:
+        """Format search response dict with issues and metadata."""
+        issues = response.get("issues", [])
+        lines = self._format_search(issues).split("\n")
+
+        # Add warning about missing issues if present
+        if response.get("missing"):
+            lines.append(f"MISSING: {', '.join(response['missing'])}")
+        if response.get("_warning"):
+            lines.append(f"WARNING: {response['_warning']}")
+
+        return "\n".join(lines)
 
     def _format_search(self, issues: list) -> str:
         if not issues:
