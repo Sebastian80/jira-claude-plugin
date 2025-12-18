@@ -35,7 +35,7 @@ class JiraPlugin:
 
     @property
     def version(self) -> str:
-        return "1.1.0"
+        return "1.2.1"
 
     @property
     def router(self) -> APIRouter:

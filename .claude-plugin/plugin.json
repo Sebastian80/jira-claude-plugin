@@ -1,7 +1,7 @@
 {
   "name": "jira",
-  "version": "1.0.0",
-  "description": "Comprehensive Jira integration with syntax validation, templates, and API operations",
+  "version": "1.2.1",
+  "description": "Jira integration for AI agents with token-efficient output, bulk fetch, and comprehensive workflow automation",
   "author": {
     "name": "Netresearch DTT GmbH",
     "email": "info@netresearch.de"
