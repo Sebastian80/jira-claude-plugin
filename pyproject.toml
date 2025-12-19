@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jira-cli"
+version = "2.0.0"
+description = "Standalone Jira CLI for Claude Code"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104",
+    "uvicorn>=0.24",
+    "httpx>=0.25",
+    "atlassian-python-api>=3.41",
+    "rich>=13.0",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+jira-server = "jira.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["jira"]

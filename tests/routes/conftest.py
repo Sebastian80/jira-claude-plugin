@@ -13,6 +13,10 @@ import pytest
 # Add tests directory to path for helpers import
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Plugin and CLI paths
+PLUGIN_DIR = Path(__file__).parent.parent.parent
+JIRA_CMD = str(PLUGIN_DIR / "bin" / "jira")
+
 
 # ==============================================================================
 # Pytest Hooks
@@ -48,16 +52,30 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def ensure_daemon_running():
-    """Ensure bridge daemon is running before tests."""
-    # Use full path to avoid collision with /usr/sbin/bridge (network tool)
-    bridge_venv = Path.home() / ".claude/plugins/marketplaces/sebastian-marketplace/plugins/ai-tool-bridge/.venv"
-    bridge_cmd = bridge_venv / "bin/bridge"
-
+def ensure_server_running():
+    """Ensure jira server is running before tests."""
+    # Check if server is already running via status command
     result = subprocess.run(
-        [str(bridge_cmd), "health"],
+        [JIRA_CMD, "status"],
         capture_output=True,
         text=True
     )
-    if result.returncode != 0 or "ok" not in result.stdout.lower():
-        pytest.skip("Bridge daemon not running. Start with: bridge start")
+
+    if result.returncode != 0 or "not running" in result.stdout.lower():
+        # Try to start the server
+        start_result = subprocess.run(
+            [JIRA_CMD, "start"],
+            capture_output=True,
+            text=True
+        )
+        if start_result.returncode != 0:
+            pytest.skip(f"Failed to start jira server: {start_result.stderr}")
+
+    # Verify health
+    health_result = subprocess.run(
+        [JIRA_CMD, "health"],
+        capture_output=True,
+        text=True
+    )
+    if "unhealthy" in health_result.stdout.lower():
+        pytest.skip("Jira server unhealthy - check credentials in ~/.env.jira")

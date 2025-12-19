@@ -1,19 +1,16 @@
 """
-Pytest fixtures for jira-integration tests.
+Pytest fixtures for jira plugin tests.
 """
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 
-# Add paths for importing
+# Add plugin root to path
 PLUGIN_ROOT = Path(__file__).parent.parent
-AI_TOOL_BRIDGE = PLUGIN_ROOT.parent / "ai-tool-bridge" / "src"
-
 sys.path.insert(0, str(PLUGIN_ROOT))
-sys.path.insert(0, str(AI_TOOL_BRIDGE))
 
 
 @pytest.fixture

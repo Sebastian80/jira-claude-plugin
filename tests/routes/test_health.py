@@ -1,38 +1,16 @@
 """
-Tests for daemon health and Jira plugin connection.
+Tests for health and status endpoints.
 
 Endpoints tested:
-- bridge health - Daemon health
-- GET /health - Jira plugin health
+- jira health - Jira connection health
+- jira status - Server status
 
-Cross-cutting tests that verify the bridge daemon and Jira plugin are operational.
+Cross-cutting tests that verify the Jira server and connection are operational.
 """
 
 import pytest
 
 from helpers import run_cli, run_cli_raw, get_data
-
-
-class TestDaemonHealth:
-    """Test daemon health endpoints."""
-
-    def test_daemon_health(self):
-        """Daemon should be running and healthy."""
-        result = run_cli("health")
-        assert result.get("status") == "running"
-        assert "jira" in result.get("plugins", [])
-
-    def test_jira_plugin_connected(self):
-        """Jira plugin should be connected."""
-        result = run_cli("health")
-        jira_health = result.get("plugin_health", {}).get("jira", {})
-        assert jira_health.get("status") in ("connected", "reconnected")
-
-    def test_plugins_list(self):
-        """Should list jira in available plugins."""
-        result = run_cli("plugins")
-        plugin_names = [p["name"] for p in result.get("plugins", [])]
-        assert "jira" in plugin_names
 
 
 class TestJiraHealth:
@@ -66,13 +44,29 @@ class TestJiraHealth:
             assert code == 0
 
 
+class TestServerStatus:
+    """Test server status command."""
+
+    def test_server_status(self):
+        """Should report server as running."""
+        stdout, stderr, code = run_cli_raw("jira", "status")
+        assert code == 0
+        # Server should be running since we're able to call it
+        assert "running" in stdout.lower() or "pid" in stdout.lower()
+
+
 class TestPluginHelp:
     """Test plugin-level help system."""
 
-    def test_plugin_help(self):
-        """Should show plugin-level help."""
-        stdout, stderr, code = run_cli_raw("jira", "--help")
-        assert "jira" in stdout.lower()
+    def test_jira_help(self):
+        """Should show jira help."""
+        stdout, stderr, code = run_cli_raw("jira", "help")
+        assert "issue" in stdout.lower() or "search" in stdout.lower()
+        assert code == 0
+
+    def test_jira_help_specific(self):
+        """Should show help for specific command."""
+        stdout, stderr, code = run_cli_raw("jira", "help", "issue")
         assert code == 0
 
 

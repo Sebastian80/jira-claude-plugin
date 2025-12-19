@@ -4,6 +4,7 @@ Response formatting utilities.
 Handles JSON and text formatting for API responses.
 """
 
+import logging
 from typing import Any
 
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -12,6 +13,11 @@ try:
     from .formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
 except ImportError:
     from formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
+
+logger = logging.getLogger("jira.response")
+
+# Valid format values
+VALID_FORMATS = {"json", "human", "rich", "ai", "markdown"}
 
 # Default formatters for error messages
 _DEFAULT_FORMATTERS = {
@@ -36,8 +42,17 @@ def error(message: str, hint: str | None = None, status: int = 400) -> JSONRespo
 
 def formatted(data: Any, fmt: str, data_type: str | None = None):
     """Return response in requested format."""
+    # Validate format parameter
+    if fmt not in VALID_FORMATS:
+        logger.warning(f"Invalid format '{fmt}', falling back to json. Valid: {', '.join(sorted(VALID_FORMATS))}")
+        fmt = "json"
+
     if fmt == "json":
         return JSONResponse(content={"success": True, "data": data})
+
+    # Normalize format name (human -> rich for compatibility)
+    if fmt == "human":
+        fmt = "rich"
 
     formatter = formatter_registry.get(fmt, plugin="jira", data_type=data_type)
     if formatter is None:

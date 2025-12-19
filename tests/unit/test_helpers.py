@@ -11,9 +11,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 # Setup paths - add jira package root to path
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
-TOOLBUS_DIR = PLUGIN_ROOT.parent / "ai-tool-bridge"
 sys.path.insert(0, str(PLUGIN_ROOT))
-sys.path.insert(0, str(TOOLBUS_DIR))
 
 from jira.response import success, error, formatted, formatted_error
 
@@ -137,3 +135,7 @@ class TestFormattedError:
 
         assert isinstance(result, PlainTextResponse)
         assert b"Try this" in result.body or "Try this" in str(result.body)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

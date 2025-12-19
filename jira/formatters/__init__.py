@@ -29,7 +29,9 @@ from .base import (
     make_issue_link,
     render_to_string,
 )
-from .comments import JiraCommentsAIFormatter, JiraCommentsRichFormatter
+from .comments import JiraCommentsAIFormatter, JiraCommentsMarkdownFormatter, JiraCommentsRichFormatter
+from .priorities import JiraPrioritiesAIFormatter, JiraPrioritiesMarkdownFormatter, JiraPrioritiesRichFormatter
+from .statuses import JiraStatusesAIFormatter, JiraStatusesMarkdownFormatter, JiraStatusesRichFormatter
 from .issue import (
     JiraIssueAIFormatter,
     JiraIssueMarkdownFormatter,
@@ -87,6 +89,15 @@ __all__ = [
     # Comments formatters
     "JiraCommentsRichFormatter",
     "JiraCommentsAIFormatter",
+    "JiraCommentsMarkdownFormatter",
+    # Statuses formatters
+    "JiraStatusesRichFormatter",
+    "JiraStatusesAIFormatter",
+    "JiraStatusesMarkdownFormatter",
+    # Priorities formatters
+    "JiraPrioritiesRichFormatter",
+    "JiraPrioritiesAIFormatter",
+    "JiraPrioritiesMarkdownFormatter",
     # Link types formatters
     "JiraLinkTypesRichFormatter",
     "JiraLinkTypesAIFormatter",
@@ -137,6 +148,17 @@ def register_jira_formatters():
     # Comments formatters
     formatter_registry.register("jira", "comments", "rich", JiraCommentsRichFormatter())
     formatter_registry.register("jira", "comments", "ai", JiraCommentsAIFormatter())
+    formatter_registry.register("jira", "comments", "markdown", JiraCommentsMarkdownFormatter())
+
+    # Statuses formatters
+    formatter_registry.register("jira", "statuses", "rich", JiraStatusesRichFormatter())
+    formatter_registry.register("jira", "statuses", "ai", JiraStatusesAIFormatter())
+    formatter_registry.register("jira", "statuses", "markdown", JiraStatusesMarkdownFormatter())
+
+    # Priorities formatters
+    formatter_registry.register("jira", "priorities", "rich", JiraPrioritiesRichFormatter())
+    formatter_registry.register("jira", "priorities", "ai", JiraPrioritiesAIFormatter())
+    formatter_registry.register("jira", "priorities", "markdown", JiraPrioritiesMarkdownFormatter())
 
     # Link types formatters
     formatter_registry.register("jira", "linktypes", "rich", JiraLinkTypesRichFormatter())

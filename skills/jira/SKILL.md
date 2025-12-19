@@ -11,9 +11,9 @@ description: >
   Supports Jira Cloud and Server/Data Center.
 ---
 
-# Jira Communication
+# Jira CLI
 
-Unified `jira` CLI for all Jira operations via AI Tool Bridge daemon.
+Standalone `jira` CLI for all Jira operations. Self-contained FastAPI server.
 
 ## The Iron Law
 
@@ -27,36 +27,32 @@ If a ticket key (PROJ-123, HMKG-2064) appears anywhere - user message, file, git
 
 ```bash
 # Single issue
-jira issue PROJ-123                          # Get issue (ai format)
-jira issue PROJ-123 --include-links          # Include linked issues
-jira issue PROJ-123 --expand changelog       # Include change history
-
-# Bulk fetch (parallel, fast)
-jira issues PROJ-1,PROJ-2,PROJ-3             # Multiple issues at once
+jira issue PROJ-123                          # Get issue (json format default)
+jira issue PROJ-123 --format ai              # Token-efficient for LLMs
 
 # Search
 jira search --jql 'assignee = currentUser()' # Use single quotes for JQL
 
 # Workflow
 jira transitions PROJ-123                    # List available transitions
-jira transition PROJ-123 --transition "In Progress"
+jira transition PROJ-123 --target "In Progress"
 
 # Comments & Time
-jira comment PROJ-123 --body "Done"          # Add comment
+jira comment PROJ-123 --text "Done"          # Add comment
 jira worklog PROJ-123 --timeSpent 2h         # Log time
 
 # Help
-jira --help                                  # Full command list
+jira help                                    # Full command list
 jira help search                             # Command-specific help
 ```
 
 ## Output Formats
 
 ```bash
---format ai        # Default: token-efficient for LLMs
+--format json      # Default: Raw API response
+--format ai        # Token-efficient for LLMs
 --format rich      # Terminal colors and panels
 --format markdown  # Markdown tables
---format json      # Raw API response
 ```
 
 ## Creating Issues
@@ -65,40 +61,22 @@ jira help search                             # Command-specific help
 # Basic
 jira create --project PROJ --type Task --summary "New task"
 
-# With sprint (use sprint ID)
-jira create --project PROJ --type Task --summary "Task" --sprint 901
-
 # Full example
 jira create --project PROJ --type Bug --summary "Fix login" \
-  --assignee john --priority High --sprint 901 \
-  --components "Backend" --fixVersions "v2.0" --duedate 2025-12-31
+  --assignee john --priority High \
+  --description "Login fails on mobile"
 ```
 
-**Parameters:** `--project`, `--type`, `--summary` (required), `--description`, `--priority`, `--labels`, `--assignee`, `--sprint`, `--components`, `--fixVersions`, `--duedate`, `--parent`
+**Parameters:** `--project`, `--type`, `--summary` (required), `--description`, `--priority`, `--labels`, `--assignee`
 
-## v1.2.0 Features
+## Server Management
 
-### Bulk Fetch
-
-Fetch multiple issues in parallel:
 ```bash
-jira issues HMKG-1,HMKG-2,HMKG-3
-jira issues "HMKG-1 HMKG-2 HMKG-3"
-```
-
-### Linked Issues
-
-Include linked issue summaries:
-```bash
-jira issue PROJ-123 --include-links
-```
-
-### Field Validation
-
-Warns about invalid field names:
-```bash
-jira issue PROJ-123 --fields summary,foobar
-# WARNING: Unknown fields (may be custom): foobar
+jira start      # Start server (auto-starts on first command)
+jira stop       # Stop server
+jira status     # Show server status
+jira restart    # Restart server
+jira health     # Check Jira connection
 ```
 
 ## Related Skills
@@ -132,4 +110,4 @@ JIRA_URL=https://jira.yourcompany.com
 JIRA_PERSONAL_TOKEN=your-personal-access-token
 ```
 
-Verify with: `jira user me`
+Verify with: `jira health`

@@ -1,5 +1,277 @@
 #!/bin/bash
-# Jira CLI - routes commands to daemon via bridge
-# Installed by: jira-integration plugin
-BRIDGE_VENV="${BRIDGE_VENV:-$HOME/.claude/plugins/marketplaces/sebastian-marketplace/plugins/ai-tool-bridge/.venv}"
-exec "$BRIDGE_VENV/bin/bridge" jira "$@"
+#
+# Jira CLI - Self-bootstrapping standalone client
+#
+# Features:
+# - Auto-creates venv on first run
+# - Auto-creates symlink in ~/.local/bin
+# - Manages server lifecycle (start/stop)
+# - Routes commands to HTTP API
+#
+# Usage:
+#   jira setup              # Explicit setup
+#   jira start              # Start server (background)
+#   jira stop               # Stop server
+#   jira status             # Show server status
+#   jira health             # Check Jira connection
+#   jira help               # Show available commands
+#   jira issue HMKG-123     # Get issue details
+#   jira search "project = HMKG"  # Search issues
+#
+
+set -e
+
+# === Configuration ===
+SCRIPT_PATH="$(realpath "$0")"
+PLUGIN_DIR="$(dirname "$(dirname "$SCRIPT_PATH")")"
+JIRA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/jira-cli"
+VENV_DIR="$JIRA_HOME/.venv"
+PID_FILE="$JIRA_HOME/server.pid"
+LOG_FILE="$JIRA_HOME/server.log"
+LOCAL_BIN="$HOME/.local/bin"
+SYMLINK="$LOCAL_BIN/jira"
+HOST="${JIRA_HOST:-127.0.0.1}"
+PORT="${JIRA_PORT:-9200}"
+BASE_URL="http://$HOST:$PORT"
+
+# === Helper Functions ===
+
+log() {
+    echo "[jira] $*" >&2
+}
+
+ensure_venv() {
+    if [[ ! -d "$VENV_DIR" ]]; then
+        log "Creating virtual environment..."
+        mkdir -p "$JIRA_HOME"
+        python3 -m venv "$VENV_DIR"
+
+        log "Installing dependencies..."
+        "$VENV_DIR/bin/pip" install --quiet --upgrade pip
+        "$VENV_DIR/bin/pip" install --quiet \
+            fastapi uvicorn httpx atlassian-python-api rich pydantic
+
+        # Install jira package in editable mode
+        "$VENV_DIR/bin/pip" install --quiet -e "$PLUGIN_DIR"
+
+        log "Setup complete."
+    fi
+}
+
+ensure_symlink() {
+    if [[ ! -L "$SYMLINK" ]] || [[ "$(readlink "$SYMLINK" 2>/dev/null)" != "$SCRIPT_PATH" ]]; then
+        mkdir -p "$LOCAL_BIN"
+        ln -sf "$SCRIPT_PATH" "$SYMLINK"
+        log "Installed: jira -> $SCRIPT_PATH"
+    fi
+}
+
+is_running() {
+    if [[ -f "$PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        rm -f "$PID_FILE"
+    fi
+    return 1
+}
+
+wait_for_server() {
+    local timeout=${1:-10}
+    local count=0
+    while [[ $count -lt $timeout ]]; do
+        if curl -s "$BASE_URL/health" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.5
+        count=$((count + 1))
+    done
+    return 1
+}
+
+start_server() {
+    if is_running; then
+        log "Server already running (PID $(cat "$PID_FILE"))"
+        return 0
+    fi
+
+    ensure_venv
+
+    log "Starting server on $HOST:$PORT..."
+    cd "$PLUGIN_DIR"
+
+    JIRA_HOST="$HOST" JIRA_PORT="$PORT" \
+        nohup "$VENV_DIR/bin/python" -m jira.main \
+        > "$LOG_FILE" 2>&1 &
+
+    local pid=$!
+    echo "$pid" > "$PID_FILE"
+
+    if wait_for_server 10; then
+        log "Server started (PID $pid)"
+        return 0
+    else
+        log "Server failed to start. Check $LOG_FILE"
+        rm -f "$PID_FILE"
+        return 1
+    fi
+}
+
+stop_server() {
+    if [[ -f "$PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            log "Stopping server (PID $pid)..."
+            kill "$pid"
+            rm -f "$PID_FILE"
+            log "Server stopped."
+            return 0
+        fi
+        rm -f "$PID_FILE"
+    fi
+    log "Server not running."
+}
+
+ensure_server() {
+    if ! is_running; then
+        start_server
+    fi
+}
+
+# Convert CLI args to HTTP request
+# jira issue HMKG-123 --format ai -> GET /jira/issue/HMKG-123?format=ai
+route_request() {
+    local endpoint="$1"
+    shift
+
+    local path_args=()
+    local query_params=()
+    local method="GET"
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --*)
+                # Query parameter: --key value or --key=value
+                local key="${1#--}"
+                if [[ "$key" == *"="* ]]; then
+                    query_params+=("$key")
+                elif [[ -n "$2" && ! "$2" == --* ]]; then
+                    query_params+=("$key=$2")
+                    shift
+                else
+                    query_params+=("$key=true")
+                fi
+                ;;
+            -X)
+                method="$2"
+                shift
+                ;;
+            *)
+                # Positional argument (path parameter)
+                path_args+=("$1")
+                ;;
+        esac
+        shift
+    done
+
+    # Build URL path
+    local url="$BASE_URL/jira/$endpoint"
+    for arg in "${path_args[@]}"; do
+        url="$url/$arg"
+    done
+
+    # Build curl command with proper URL encoding
+    local curl_args=(-s -w "\n%{http_code}")
+
+    if [[ "$method" != "GET" ]]; then
+        curl_args+=(-X "$method")
+    fi
+
+    # Add query params with proper encoding using --data-urlencode
+    if [[ ${#query_params[@]} -gt 0 ]]; then
+        curl_args+=(--get)
+        for param in "${query_params[@]}"; do
+            curl_args+=(--data-urlencode "$param")
+        done
+    fi
+
+    curl_args+=("$url")
+
+    # Make request
+    local response
+    response=$(curl "${curl_args[@]}")
+
+    # Extract body and status
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | head -n-1)
+
+    # Output response
+    echo "$body"
+
+    # Return appropriate exit code
+    if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# === Main Command Router ===
+
+case "${1:-help}" in
+    setup)
+        log "Setting up Jira CLI..."
+        ensure_venv
+        ensure_symlink
+        log "Done. Run 'jira health' to verify connection."
+        ;;
+
+    start)
+        start_server
+        ;;
+
+    stop)
+        stop_server
+        ;;
+
+    restart)
+        stop_server
+        sleep 1
+        start_server
+        ;;
+
+    status)
+        if is_running; then
+            echo "Server running (PID $(cat "$PID_FILE")) on $BASE_URL"
+            curl -s "$BASE_URL/health" | python3 -m json.tool 2>/dev/null || true
+        else
+            echo "Server not running"
+            exit 1
+        fi
+        ;;
+
+    logs)
+        if [[ -f "$LOG_FILE" ]]; then
+            tail -f "$LOG_FILE"
+        else
+            echo "No logs found at $LOG_FILE"
+        fi
+        ;;
+
+    help|--help|-h)
+        ensure_server
+        route_request "help" "${@:2}"
+        ;;
+
+    *)
+        # Auto-start server and route command
+        ensure_server
+        route_request "$@"
+        ;;
+esac

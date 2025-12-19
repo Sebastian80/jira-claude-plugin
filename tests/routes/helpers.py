@@ -15,12 +15,12 @@ import pytest
 # Test Configuration
 # ==============================================================================
 
-TEST_PROJECT = "OROSPD"  # Project with test issues
-TEST_ISSUE = "OROSPD-589"  # Existing issue for read tests
+TEST_PROJECT = "HMKG"  # Project with test issues
+TEST_ISSUE = "HMKG-2062"  # Existing issue for read tests
 
-# Bridge CLI path (avoid collision with /usr/sbin/bridge)
-_BRIDGE_VENV = Path.home() / ".claude/plugins/marketplaces/sebastian-marketplace/plugins/ai-tool-bridge/.venv"
-BRIDGE_CMD = str(_BRIDGE_VENV / "bin/bridge")
+# Jira CLI path - use the standalone jira CLI
+PLUGIN_DIR = Path(__file__).parent.parent.parent
+JIRA_CMD = str(PLUGIN_DIR / "bin" / "jira")
 
 
 # ==============================================================================
@@ -28,10 +28,10 @@ BRIDGE_CMD = str(_BRIDGE_VENV / "bin/bridge")
 # ==============================================================================
 
 def run_cli(*args, expect_success=True) -> dict | list | str:
-    """Run bridge CLI command and return parsed result.
+    """Run jira CLI command and return parsed result.
 
     Args:
-        *args: Command arguments to pass to bridge (e.g., "jira", "user")
+        *args: Command arguments to pass to jira (e.g., "issue", "PROJ-123")
         expect_success: If True, fail test on error responses
 
     Returns:
@@ -41,7 +41,7 @@ def run_cli(*args, expect_success=True) -> dict | list | str:
     args_list = list(args)
     if "--format" not in args_list:
         args_list.extend(["--format", "json"])
-    cmd = [BRIDGE_CMD] + args_list
+    cmd = [JIRA_CMD] + args_list
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     output = result.stdout.strip()
@@ -76,14 +76,14 @@ def get_data(result) -> list | dict | str:
 
 
 def run_cli_raw(*args) -> tuple[str, str, int]:
-    """Run bridge CLI and return raw stdout, stderr, returncode.
+    """Run jira CLI and return raw stdout, stderr, returncode.
 
     Args:
-        *args: Command arguments to pass to bridge
+        *args: Command arguments to pass to jira
 
     Returns:
         Tuple of (stdout, stderr, return_code)
     """
-    cmd = [BRIDGE_CMD] + list(args)
+    cmd = [JIRA_CMD] + list(args)
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.stdout, result.stderr, result.returncode

@@ -1,13 +1,14 @@
 """
 Jira Comments formatters.
 
-Provides Rich and AI formatters for issue comments.
+Provides Rich, AI, and Markdown formatters for issue comments.
 """
 
 from typing import Any
 
 from .base import (
     AIFormatter,
+    MarkdownFormatter,
     Panel,
     RichFormatter,
     Text,
@@ -15,7 +16,7 @@ from .base import (
     render_to_string,
 )
 
-__all__ = ["JiraCommentsRichFormatter", "JiraCommentsAIFormatter"]
+__all__ = ["JiraCommentsRichFormatter", "JiraCommentsAIFormatter", "JiraCommentsMarkdownFormatter"]
 
 
 class JiraCommentsRichFormatter(RichFormatter):
@@ -80,4 +81,36 @@ class JiraCommentsAIFormatter(AIFormatter):
             author = c.get("author", {}).get("displayName", "?")
             body = c.get("body", "")[:100].replace("\n", " ")
             lines.append(f"- {author}: {body}")
+        return "\n".join(lines)
+
+
+class JiraCommentsMarkdownFormatter(MarkdownFormatter):
+    """Markdown comments."""
+
+    def format(self, data: Any) -> str:
+        if isinstance(data, list):
+            if not data:
+                return "## Comments\n\n*No comments*"
+            if "author" in data[0]:
+                return self._format_comments(data)
+        return super().format(data)
+
+    def _format_comments(self, comments: list) -> str:
+        if not comments:
+            return "## Comments\n\n*No comments*"
+
+        lines = [f"## Comments ({len(comments)})", ""]
+
+        for c in comments:
+            author = c.get("author", {}).get("displayName", "?")
+            created = c.get("created", "?")[:10]
+            body = c.get("body", "")
+
+            lines.append(f"### {author} - {created}")
+            lines.append("")
+            lines.append(body)
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
         return "\n".join(lines)

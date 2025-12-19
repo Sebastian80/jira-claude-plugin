@@ -1,32 +1,36 @@
-# Jira Plugin Internals
+# Jira Package Internals
 
-Internal architecture and component documentation for the `jira/` package.
+Internal architecture and component documentation for the `jira/` Python package.
 
 ## Package Structure
 
 ```
 jira/
-├── __init__.py      # Exports JiraPlugin
-├── plugin.py        # Plugin entry point, lifecycle management
-├── connector.py     # JiraConnector with circuit breaker
-├── deps.py          # FastAPI dependency injection
+├── __init__.py      # Package init, formatter registration
+├── main.py          # FastAPI server entry point
+├── deps.py          # Dependency injection (Jira client singleton)
 ├── response.py      # Response formatting utilities
 │
-├── tools/           # CLI commands as Pydantic Tool classes
-│   ├── __init__.py  # ALL_TOOLS list, exports
-│   ├── issues.py    # GetIssue, GetIssues, CreateIssue, UpdateIssue
-│   ├── search.py    # SearchIssues (JQL)
-│   ├── workflow.py  # GetTransitions, Transition, GetWorkflows
-│   ├── comments.py  # GetComments, AddComment
-│   ├── worklogs.py  # GetWorklogs, AddWorklog
-│   ├── links.py     # GetLinks, CreateIssueLink, CreateWebLink
+├── routes/          # FastAPI route handlers
+│   ├── __init__.py  # create_router() - combines all routes
+│   ├── issues.py    # GET /issue/{key}, POST /create, PATCH /issue/{key}
+│   ├── search.py    # GET /search (JQL)
+│   ├── workflow.py  # GET /transitions, POST /transition
+│   ├── comments.py  # GET /comments, POST /comment
+│   ├── worklogs.py  # GET /worklogs, POST /worklog
+│   ├── links.py     # Issue links and web links
 │   ├── attachments.py
 │   ├── watchers.py
 │   ├── projects.py
 │   ├── components.py
 │   ├── versions.py
-│   ├── metadata.py  # GetFields, GetPriorities, GetStatuses, GetFilters
-│   └── user.py      # GetCurrentUser, GetHealth
+│   ├── statuses.py
+│   ├── priorities.py
+│   ├── fields.py
+│   ├── filters.py
+│   ├── user.py
+│   ├── health.py
+│   └── help.py      # Self-documenting /help endpoint
 │
 ├── formatters/      # Output formatters (AI, Rich, Markdown)
 │   ├── __init__.py  # Registry, registration function
@@ -34,10 +38,6 @@ jira/
 │   ├── issue.py     # Issue formatters
 │   ├── search.py    # Search results formatters
 │   └── ...          # Entity-specific formatters
-│
-├── routes/          # FastAPI routers
-│   ├── __init__.py  # create_router() - combines all routes
-│   └── help.py      # Self-documenting /help endpoint
 │
 └── lib/             # Shared utilities
     ├── client.py    # get_jira_client() factory
@@ -53,112 +53,75 @@ jira/
    jira issue PROJ-123 --format ai
           │
           ▼
-2. Bridge Plugin Router (toolbus/cli/plugin_router.py)
-   Parses args → HTTP request
-   GET http://[::1]:9100/jira/issue/PROJ-123?format=ai
+2. bin/jira (Bash wrapper)
+   Ensures server running, converts args to HTTP
+   GET http://127.0.0.1:9200/jira/issue/PROJ-123?format=ai
           │
           ▼
-3. FastAPI Daemon
-   Routes to /jira/* router
+3. FastAPI Server (main.py)
+   Routes to /jira/* handlers
           │
           ▼
-4. Tool Registry (routes/__init__.py)
-   register_tools(router, ALL_TOOLS, Depends(jira))
-   Matches GET /issue/{key} → GetIssue tool
+4. Route Handler (routes/issues.py)
+   get_issue(key, format, client=Depends(jira))
           │
           ▼
 5. Dependency Injection (deps.py)
-   jira() → connector_registry.get("jira").client
+   jira() → module singleton client
           │
           ▼
-6. Tool Execution (tools/issues.py)
-   GetIssue.execute(ctx)
-   ctx.client.issue("PROJ-123")
-          │
-          ▼
-7. Jira Connector (connector.py)
-   Circuit breaker check → Pass to atlassian.Jira client
-          │
-          ▼
-8. Jira API
+6. Jira API
+   client.issue("PROJ-123")
    HTTPS request to Jira Cloud/Server
           │
           ▼
-9. Response Formatting (response.py)
+7. Response Formatting (response.py)
    formatted(data, "ai", "issue")
    → FormatterRegistry.get("ai", "jira", "issue")
    → JiraIssueAIFormatter.format(data)
           │
           ▼
-10. CLI Output
-    PlainTextResponse → stdout
+8. CLI Output
+   PlainTextResponse → stdout
 ```
 
 ## Key Components
 
-### plugin.py - Entry Point
+### main.py - Server Entry Point
 
 ```python
-class JiraPlugin:
-    """Implements PluginProtocol for AI Tool Bridge."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize Jira client singleton
+    init_client()
+    yield
+    # Shutdown: Cleanup
+    reset()
 
-    @property
-    def name(self) -> str: return "jira"
-
-    @property
-    def router(self) -> APIRouter:
-        return create_router()  # All /jira/* routes
-
-    async def startup(self):
-        # Register connector with bridge's global registry
-        self._connector_registry.register(self._connector)
-        # Establish Jira connection
-        await self._connector.connect()
-
-    async def shutdown(self):
-        await self._connector.disconnect()
-        self._connector_registry.unregister("jira")
+app = FastAPI(lifespan=lifespan)
+app.include_router(create_router(), prefix="/jira")
 ```
-
-### connector.py - Resilient API Client
-
-```python
-class JiraConnector:
-    """Wraps atlassian.Jira with circuit breaker."""
-
-    # Circuit breaker config
-    _failure_threshold = 5      # Failures before opening
-    _reset_timeout = 30.0       # Seconds until half_open
-
-    @property
-    def client(self):
-        if self.circuit_state == "open":
-            raise RuntimeError("Circuit breaker open")
-        return self._client
-
-    def _record_failure(self):
-        self._failure_count += 1
-        if self._failure_count >= self._failure_threshold:
-            self._circuit_state = "open"
-```
-
-Circuit breaker states:
-- `closed`: Normal operation
-- `open`: Failing fast, no requests sent
-- `half_open`: Testing if service recovered
 
 ### deps.py - Dependency Injection
 
 ```python
+# Module-level singleton
+_client = None
+_healthy = False
+
+def init_client():
+    """Initialize the Jira client singleton."""
+    global _client, _healthy
+    _client = get_jira_client()
+    _client.myself()  # Verify connection
+    _healthy = True
+
 def jira():
     """FastAPI dependency - provides Jira client."""
-    connector = connector_registry.get_optional("jira")
-    if not connector or not connector.healthy:
+    client = get_client()
+    if client is None:
         raise HTTPException(503, "Jira not connected")
-    return connector.client
-
-# Usage in route registration:
-register_tools(router, ALL_TOOLS, client_dependency=Depends(jira))
+    return client
 ```
 
 ### response.py - Output Formatting
@@ -178,46 +141,47 @@ def formatted(data: Any, fmt: str, data_type: str | None = None):
     return JSONResponse({"success": True, "data": data})
 ```
 
-### routes/__init__.py - Router Creation
+### routes/__init__.py - Router Assembly
 
 ```python
 def create_router() -> APIRouter:
     router = APIRouter()
 
-    # Help endpoint (manual route)
+    router.include_router(health_router)
     router.include_router(help_router)
-
-    # Auto-generate routes from Tool classes
-    register_tools(
-        router,
-        ALL_TOOLS,
-        client_dependency=Depends(jira),
-        formatter=formatted,
-    )
+    router.include_router(issues_router)
+    router.include_router(search_router)
+    # ... all other route modules
 
     return router
 ```
 
-## Tool Registration
+## Route Pattern
 
-Tools are automatically converted to FastAPI routes:
+Each route module follows this pattern:
 
 ```python
-class GetIssue(Tool):
-    key: str = Field(...)           # → Path parameter
-    format: str = Field("ai")       # → Query parameter
+# routes/issues.py
+from fastapi import APIRouter, Depends, Query
+from ..deps import jira
+from ..response import formatted, formatted_error
 
-    class Meta:
-        method = "GET"              # → HTTP method
-        path = "/issue/{key}"       # → Route path
+router = APIRouter()
 
-    async def execute(self, ctx):   # → Route handler
-        ...
-```
-
-Becomes:
-```
-GET /jira/issue/{key}?format=ai
+@router.get("/issue/{key}")
+async def get_issue(
+    key: str,
+    format: str = Query("json", description="Output format"),
+    client=Depends(jira),
+):
+    """Get issue details by key."""
+    try:
+        issue = client.issue(key)
+        return formatted(issue, format, "issue")
+    except Exception as e:
+        if "not found" in str(e).lower():
+            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
+        raise HTTPException(status_code=500, detail=str(e))
 ```
 
 ## Formatter Registration
@@ -231,6 +195,7 @@ def register_jira_formatters():
     # Issue formatters
     formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
     formatter_registry.register("jira", "issue", "rich", JiraIssueRichFormatter())
+    formatter_registry.register("jira", "issue", "markdown", JiraIssueMarkdownFormatter())
 
     # Search formatters
     formatter_registry.register("jira", "search", "ai", JiraSearchAIFormatter())
@@ -263,43 +228,27 @@ Auto-detection:
 - `JIRA_USERNAME` + `JIRA_API_TOKEN` → Cloud basic auth
 - URL contains `.atlassian.net` → Cloud mode
 
-## Health Checks
-
-```python
-# plugin.py
-async def health_check(self) -> dict:
-    status = self._connector.status()
-    return {
-        "status": "healthy" if status["healthy"] else "unhealthy",
-        "circuit_state": status["circuit_state"],
-        "failure_count": status.get("failure_count", 0),
-    }
-```
-
-CLI: `jira health`
-
 ## Debugging
 
 ```bash
-# Plugin health
+# Server health
 jira health
 
-# Daemon logs
-tail -f ~/.local/share/ai-tool-bridge/logs/daemon.log
+# Server logs
+jira logs
 
 # Direct API call
-curl "http://[::1]:9100/jira/issue/PROJ-123"
+curl "http://127.0.0.1:9200/jira/issue/PROJ-123"
 
 # OpenAPI spec
-curl "http://[::1]:9100/openapi.json" | jq '.paths | keys'
+curl "http://127.0.0.1:9200/openapi.json" | jq '.paths | keys'
 
-# Reload after code changes
-~/.claude/.../ai-tool-bridge/.venv/bin/bridge reload
+# Restart after code changes
+jira restart
 ```
 
 ## See Also
 
 - [../ARCHITECTURE.md](../ARCHITECTURE.md) - System-wide architecture
 - [../EXTENDING.md](../EXTENDING.md) - Adding new functionality
-- [tools/README.md](tools/README.md) - Tool class patterns
 - [formatters/README.md](formatters/README.md) - Formatter system

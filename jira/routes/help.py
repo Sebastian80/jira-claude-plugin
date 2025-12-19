@@ -24,10 +24,10 @@ router = APIRouter()
 
 
 def extract_enum_from_description(description: str) -> list[str] | None:
-    """Extract enum values from description patterns like 'format: json, rich, ai'."""
+    """Extract enum values from description patterns like 'format: json, human, ai'."""
     patterns = [
-        r":\s*([a-zA-Z]+(?:,\s*[a-zA-Z]+)+)",  # "format: json, rich, ai"
-        r"\(([a-zA-Z]+(?:,\s*[a-zA-Z]+)+)\)",  # "(json, rich, ai)"
+        r":\s*([a-zA-Z]+(?:,\s*[a-zA-Z]+)+)",  # "format: json, human, ai"
+        r"\(([a-zA-Z]+(?:,\s*[a-zA-Z]+)+)\)",  # "(json, human, ai)"
     ]
     for pattern in patterns:
         match = re.search(pattern, description or "")
@@ -100,7 +100,7 @@ def condense_endpoint(path: str, method: str, spec: dict[str, Any]) -> dict[str,
 
 
 def format_help_text(endpoints: list[dict], endpoint_filter: str | None = None) -> str:
-    """Format endpoints as rich readable text."""
+    """Format endpoints as human-readable text."""
     lines = ["Jira CLI - Available Commands", "=" * 40, ""]
 
     for ep in endpoints:
@@ -162,7 +162,7 @@ def format_help_ai(endpoints: list[dict]) -> str:
 async def get_help(
     request: Request,
     endpoint: str | None = Query(None, description="Filter to specific endpoint name"),
-    format: str = Query("rich", description="Output format: json, rich, ai"),
+    format: str = Query("human", description="Output format: json, human, ai"),
 ):
     """Get condensed API documentation.
 
@@ -170,12 +170,12 @@ async def get_help(
     Much smaller than raw /openapi.json while retaining essential info.
 
     Formats:
-    - rich: Readable CLI help format
+    - human: Readable CLI help format
     - ai: Ultra-condensed for LLM consumption
     - json: Structured data
 
     Examples:
-        jira help                    # All endpoints (rich format)
+        jira help                    # All endpoints (human format)
         jira help --format ai        # AI-optimized format
         jira help --endpoint search  # Filter to search endpoint
         jira help search             # Same as above
@@ -203,7 +203,7 @@ async def get_help(
     # Sort by path
     endpoints.sort(key=lambda e: (e["path"], e["method"]))
 
-    if format == "rich":
+    if format == "human":
         return PlainTextResponse(format_help_text(endpoints))
     elif format == "ai":
         return PlainTextResponse(format_help_ai(endpoints))
@@ -215,7 +215,7 @@ async def get_help(
 async def get_endpoint_help(
     request: Request,
     endpoint_name: str,
-    format: str = Query("rich", description="Output format: json, rich, ai"),
+    format: str = Query("human", description="Output format: json, human, ai"),
 ):
     """Get help for specific endpoint.
 
@@ -255,7 +255,7 @@ async def get_endpoint_help(
             status_code=404,
         )
 
-    if format == "rich":
+    if format == "human":
         lines = [f"Help for '{endpoint_name}'", "=" * 40, ""]
         for ep in endpoints:
             lines.append(f"{ep['method']} {ep['path']}")

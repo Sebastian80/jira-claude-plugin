@@ -52,16 +52,17 @@ formatters/
 
 ## Using Formatters
 
-In a Tool's `execute()` method:
+In a route handler:
 
 ```python
 from ..response import formatted
 
-async def execute(self, ctx: ToolContext) -> Any:
-    issue = ctx.client.issue(self.key)
-    return formatted(issue, self.format, "issue")
-    #                │       │            │
-    #                │       │            └─ Data type (registry key)
+@router.get("/issue/{key}")
+async def get_issue(key: str, format: str = "json", client=Depends(jira)):
+    issue = client.issue(key)
+    return formatted(issue, format, "issue")
+    #                │       │        │
+    #                │       │        └─ Data type (registry key)
     #                │       └─ Format from --format param
     #                └─ Raw API data
 ```
@@ -349,12 +350,12 @@ def register_jira_formatters():
     formatter_registry.register("jira", "sprints", "rich", JiraSprintsRichFormatter())
 ```
 
-### 3. Use in Tool
+### 3. Use in Route
 
 ```python
-# In tool execute():
-return formatted(data, self.format, "sprints")
-#                                    ^^^^^^^ Must match registry key
+# In route handler:
+return formatted(data, format, "sprints")
+#                              ^^^^^^^ Must match registry key
 ```
 
 ## Design Principles

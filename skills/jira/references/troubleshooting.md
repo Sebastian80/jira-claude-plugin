@@ -8,6 +8,9 @@ jira health
 
 # Verify Jira credentials
 jira user me
+
+# Check server status
+jira status
 ```
 
 ## Configuration
@@ -29,22 +32,24 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 
 ## Common Errors
 
-### "Could not start daemon"
+### "Server not running"
 
-**Cause**: Daemon failed to start or port 9100 in use.
+**Cause**: Jira server not started or port 9200 in use.
 
 **Fix**:
-1. Check if something else uses port 9100: `ss -tlnp | grep 9100`
-2. Check daemon logs: `tail ~/.local/share/ai-tool-bridge/logs/daemon.log`
-3. Restart daemon: `~/.claude/plugins/marketplaces/sebastian-marketplace/plugins/ai-tool-bridge/.venv/bin/bridge restart`
+1. Check server status: `jira status`
+2. Check if something else uses port 9200: `ss -tlnp | grep 9200`
+3. View server logs: `jira logs`
+4. Restart server: `jira restart`
 
 ### "Connection failed" / "Connection reset"
 
-**Cause**: Network issue or ESET security software intercepting loopback.
+**Cause**: Network issue or server crashed.
 
 **Fix**:
-1. Daemon uses IPv6 loopback to bypass ESET - should work automatically
-2. If persists, check daemon is running: `jira health`
+1. Check server status: `jira status`
+2. View logs for errors: `jira logs`
+3. Restart if needed: `jira restart`
 
 ### "401 Unauthorized"
 
@@ -81,7 +86,7 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 **Cause**: Wrong command syntax or endpoint doesn't exist.
 
 **Fix**:
-1. Check command with `jira --help`
+1. Check command with `jira help`
 2. Positional args become path: `jira user me` → `/jira/user/me`
 
 ## Debug Mode
@@ -90,11 +95,17 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 # Check Jira health
 jira health
 
-# View daemon logs
-tail -f ~/.local/share/ai-tool-bridge/logs/daemon.log
+# Check server status
+jira status
+
+# View server logs
+jira logs
 
 # Test direct API call
-curl -s "http://[::1]:9100/jira/user/me"
+curl -s "http://127.0.0.1:9200/jira/user/me"
+
+# View OpenAPI docs
+curl -s "http://127.0.0.1:9200/openapi.json" | jq '.paths | keys'
 ```
 
 ## JQL Issues
@@ -139,7 +150,17 @@ The plugin auto-converts negation operators to `NOT ... =` as a fallback.
 
 ## Auth Mode Detection
 
-The daemon auto-detects auth mode:
+The server auto-detects auth mode:
 - If `JIRA_PERSONAL_TOKEN` set → Server/DC PAT auth
 - If `JIRA_USERNAME` + `JIRA_API_TOKEN` set → Cloud basic auth
 - URL containing `.atlassian.net` → Cloud mode
+
+## Server Management
+
+```bash
+jira start      # Start server (auto-starts on first command)
+jira stop       # Stop server
+jira status     # Show server status
+jira restart    # Restart server (pick up code changes)
+jira logs       # Tail server logs
+```

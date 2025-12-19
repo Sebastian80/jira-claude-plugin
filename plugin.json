@@ -1,0 +1,26 @@
+{
+  "name": "jira",
+  "version": "2.0.0",
+  "description": "Standalone Jira CLI for issue tracking and workflow automation",
+  "author": {
+    "name": "Netresearch DTT GmbH",
+    "email": "info@netresearch.de"
+  },
+  "license": "MIT",
+  "cli": {
+    "command": "jira",
+    "script": "bin/jira"
+  },
+  "skills": [
+    "skills/jira",
+    "skills/jira-syntax"
+  ],
+  "dependencies": [
+    "fastapi>=0.104",
+    "uvicorn>=0.24",
+    "httpx>=0.25",
+    "atlassian-python-api>=3.41",
+    "rich>=13.0",
+    "pydantic>=2.0"
+  ]
+}

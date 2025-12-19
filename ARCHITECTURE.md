@@ -1,6 +1,6 @@
 # Jira Plugin Architecture
 
-Deep dive into how the Jira plugin works, how components connect, and the data flow from CLI to Jira API.
+Deep dive into how the standalone Jira plugin works, how components connect, and the data flow from CLI to Jira API.
 
 ## System Overview
 
@@ -12,74 +12,56 @@ Deep dive into how the Jira plugin works, how components connect, and the data f
                                       │ jira issue PROJ-123
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  bin/jira (Bash wrapper)                                                   │
-│  ─────────────────────────                                                 │
-│  Forwards all args to: bridge jira $@                                      │
+│  bin/jira (Self-Bootstrapping Bash Wrapper)                                │
+│  ──────────────────────────────────────────                                │
+│  1. Ensures venv exists (auto-creates on first run)                        │
+│  2. Ensures server is running (auto-starts if needed)                      │
+│  3. Converts CLI args to HTTP request                                      │
+│  4. Routes: jira issue PROJ-123 → GET /jira/issue/PROJ-123                 │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
-                                      │ bridge jira issue PROJ-123
+                                      │ GET http://127.0.0.1:9200/jira/issue/PROJ-123
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  AI Tool Bridge CLI (plugin_router.py)                                     │
-│  ─────────────────────────────────────                                     │
-│  1. Parses args: plugin=jira, path=/issue/PROJ-123                         │
-│  2. Detects HTTP method from OpenAPI spec (GET)                            │
-│  3. Converts --flags to query params                                       │
-│  4. Auto-starts daemon if not running                                      │
-│  5. Sends HTTP request to daemon                                           │
+│  Standalone FastAPI Server (main.py, port 9200)                            │
+│  ──────────────────────────────────────────────                            │
+│  • Self-contained - no external dependencies                               │
+│  • Manages Jira client singleton                                           │
+│  • Routes requests to endpoint handlers                                    │
+│  • Provides OpenAPI documentation                                          │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
-                                      │ GET http://[::1]:9100/jira/issue/PROJ-123
+                                      │ Routes to /jira/* handlers
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  AI Tool Bridge Daemon (FastAPI on port 9100)                              │
-│  ─────────────────────────────────────────────                             │
-│  • Hosts plugins as sub-routers                                            │
-│  • Manages plugin lifecycle (startup/shutdown)                             │
-│  • Maintains connector registry                                            │
-│  • Serves OpenAPI documentation                                            │
-└────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ Routes to /jira/* router
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  JiraPlugin (plugin.py)                                                    │
-│  ──────────────────────                                                    │
-│  • Implements PluginProtocol                                               │
-│  • Creates JiraConnector                                                   │
-│  • Provides combined router                                                │
-│  • Manages connector lifecycle                                             │
-└────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ Router matches GET /issue/{key}
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  ToolRegistry (toolbus/tools/registry.py)                                  │
-│  ────────────────────────────────────────                                  │
-│  • Auto-generated route from GetIssue Tool class                           │
-│  • Validates params via Pydantic                                           │
-│  • Injects client via Depends(jira)                                        │
-│  • Calls Tool.execute(ctx)                                                 │
-└────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ GetIssue.execute(ctx)
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  GetIssue Tool (tools/issues.py)                                           │
-│  ───────────────────────────────                                           │
-│  • ctx.client = Jira API client                                            │
-│  • Calls ctx.client.issue(key)                                             │
-│  • Returns formatted(data, format, "issue")                                │
-└────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ ctx.client.issue("PROJ-123")
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│  JiraConnector (connector.py)                                              │
+│  Route Handlers (routes/*.py)                                              │
 │  ────────────────────────────                                              │
-│  • Wraps atlassian-python-api Jira client                                  │
+│  • issues.py: GET /issue/{key}, POST /create, PATCH /issue/{key}           │
+│  • search.py: GET /search?jql=...                                          │
+│  • comments.py: GET/POST /comments/{key}                                   │
+│  • workflow.py: GET /transitions/{key}, POST /transition/{key}             │
+│  • ... 17 route modules total                                              │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ Depends(jira) injection
+                                      ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Dependency Injection (deps.py)                                            │
+│  ──────────────────────────────                                            │
+│  • Module-level Jira client singleton                                      │
 │  • Circuit breaker protection                                              │
-│  • Health monitoring                                                       │
+│  • Health status tracking                                                  │
+│  • FastAPI Depends() integration                                           │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ client.issue("PROJ-123")
+                                      ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│  atlassian-python-api (Jira Client)                                        │
+│  ──────────────────────────────────                                        │
+│  • Third-party library wrapping Jira REST API                              │
+│  • Handles authentication (Cloud or Server/DC)                             │
+│  • Returns JSON responses                                                  │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ HTTPS API call
@@ -93,12 +75,12 @@ Deep dive into how the Jira plugin works, how components connect, and the data f
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  FormatterRegistry (formatters/)                                           │
 │  ───────────────────────────────                                           │
-│  • Looks up: jira:issue:ai formatter                                       │
-│  • JiraIssueAIFormatter.format(data)                                       │
+│  • Looks up formatter by: plugin + data_type + format                      │
+│  • Example: jira:issue:ai → JiraIssueAIFormatter                           │
 │  • Returns token-efficient structured text                                 │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
-                                      │ PlainTextResponse
+                                      │ PlainTextResponse / JSONResponse
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  Back through the stack to CLI output                                      │
@@ -107,109 +89,112 @@ Deep dive into how the Jira plugin works, how components connect, and the data f
 
 ## Component Deep Dive
 
-### 1. Plugin Entry Point (plugin.py)
+### 1. CLI Wrapper (bin/jira)
 
-The plugin implements `PluginProtocol` required by AI Tool Bridge:
+Self-bootstrapping bash script that handles all setup automatically:
 
-```python
-class JiraPlugin:
-    @property
-    def name(self) -> str: return "jira"
-    @property
-    def router(self) -> APIRouter: return create_router()
+```bash
+# First run: creates venv, installs deps, starts server
+jira issue PROJ-123
 
-    async def startup(self):
-        # 1. Register connector with bridge
-        self._connector_registry.register(self._connector)
-        # 2. Connect to Jira
-        await self._connector.connect()
-
-    async def shutdown(self):
-        await self._connector.disconnect()
-        self._connector_registry.unregister("jira")
+# Subsequent runs: just routes to running server
+jira issue PROJ-123
 ```
 
-**Key responsibilities:**
-- Provides plugin metadata (name, version, description)
-- Creates and configures the JiraConnector
-- Returns the FastAPI router with all endpoints
-- Manages lifecycle (startup connects, shutdown disconnects)
+**Key features:**
+- Auto-creates Python venv in `~/.local/share/jira-cli/.venv`
+- Auto-installs dependencies (fastapi, uvicorn, atlassian-python-api, etc.)
+- Auto-starts server on first command
+- Proper URL encoding with `curl --data-urlencode`
+- PID file management for server lifecycle
 
-### 2. Connector (connector.py)
+**CLI to HTTP translation:**
+```
+jira issue PROJ-123 --format ai --expand changelog
+  │    │      │          │            │
+  │    │      │          │            └─ Query param: expand=changelog
+  │    │      │          └─ Query param: format=ai
+  │    │      └─ Path segment
+  │    └─ Endpoint name
+  └─ Plugin prefix
 
-Wraps the `atlassian-python-api` Jira client with resilience patterns:
-
-```python
-class JiraConnector:
-    # Circuit breaker states
-    _circuit_state: "closed" | "open" | "half_open"
-    _failure_count: int
-    _failure_threshold: int = 5
-    _reset_timeout: float = 30.0
-
-    @property
-    def client(self):
-        if self.circuit_state == "open":
-            raise RuntimeError("Circuit breaker open")
-        return self._client
-
-    def _record_failure(self):
-        self._failure_count += 1
-        if self._failure_count >= self._failure_threshold:
-            self._circuit_state = "open"
+Result: GET /jira/issue/PROJ-123?format=ai&expand=changelog
 ```
 
-**Circuit breaker flow:**
+### 2. FastAPI Server (main.py)
+
+Standalone server with lifecycle management:
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize Jira client
+    init_client()
+    yield
+    # Shutdown: Cleanup
+    reset()
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(create_router(), prefix="/jira")
+```
+
+**Endpoints:**
+- `/health` - Server and Jira connection health
+- `/` - Basic info
+- `/jira/*` - All Jira operations
+
+### 3. Route Modules (routes/*.py)
+
+Each module handles a specific domain:
+
+| Module | Endpoints | Purpose |
+|--------|-----------|---------|
+| issues.py | `/issue/{key}`, `/create` | Issue CRUD |
+| search.py | `/search` | JQL queries |
+| comments.py | `/comments/{key}`, `/comment/{key}` | Comments |
+| workflow.py | `/transitions/{key}`, `/transition/{key}` | Status changes |
+| watchers.py | `/watchers/{key}`, `/watcher/{key}` | Watchers |
+| attachments.py | `/attachments/{key}`, `/attachment/{key}` | Files |
+| links.py | `/links/{key}`, `/linktypes` | Issue links |
+| worklogs.py | `/worklogs/{key}`, `/worklog/{key}` | Time tracking |
+| projects.py | `/projects`, `/project/{key}` | Projects |
+| statuses.py | `/statuses`, `/status/{name}` | Status metadata |
+| priorities.py | `/priorities` | Priority metadata |
+| user.py | `/user/me` | Current user |
+| health.py | `/health` | Health check |
+| help.py | `/help`, `/help/{endpoint}` | API docs |
+
+### 4. Dependency Injection (deps.py)
+
+Module-level singleton with circuit breaker:
+
+```python
+_client = None
+_healthy = False
+_circuit_state = "closed"
+_failure_count = 0
+
+def jira():
+    """FastAPI dependency - get Jira client with circuit breaker."""
+    if _circuit_state == "open":
+        raise HTTPException(503, "Circuit breaker open - Jira unavailable")
+    try:
+        return get_client()
+    except Exception as e:
+        _record_failure()
+        raise HTTPException(503, f"Jira not connected: {e}")
+```
+
+**Circuit breaker states:**
 ```
 closed ──[5 failures]──▶ open ──[30s timeout]──▶ half_open
    ▲                                                  │
    └──────────[success]───────────────────────────────┘
 ```
 
-### 3. Tools Framework (toolbus/tools/)
+### 5. Formatter System (formatters/)
 
-Tools are Pydantic models that define CLI commands:
-
-```python
-class GetIssue(Tool):
-    """Get issue details by key."""
-
-    # Pydantic fields become CLI params
-    key: str = Field(..., description="Issue key like PROJ-123")
-    fields: str | None = Field(None, description="Comma-separated fields")
-    format: str = Field("ai", description="Output format")
-
-    class Meta:
-        method = "GET"              # HTTP method
-        path = "/issue/{key}"       # URL path ({key} from field)
-        tags = ["issues"]           # OpenAPI grouping
-
-    async def execute(self, ctx: ToolContext) -> Any:
-        issue = ctx.client.issue(self.key)
-        return formatted(issue, self.format, "issue")
-```
-
-**Auto-generation magic:**
-
-The `ToolRegistry` reads Tool classes and:
-1. Extracts fields → FastAPI Query/Path parameters
-2. Extracts Meta.path → Route path
-3. Extracts docstring → OpenAPI documentation
-4. Builds endpoint function with proper signature
-5. Registers route on FastAPI router
-
-```
-Tool class                    Generated endpoint
-──────────────────────────────────────────────────────────────
-GetIssue                  →   GET /issue/{key}?fields=&format=
-  key: str                    Path parameter (required)
-  fields: str | None          Query parameter (optional)
-  format: str = "ai"          Query parameter (default: ai)
-```
-
-### 4. Formatter System (formatters/)
-
-Transforms API responses into different output formats:
+Transforms API responses for different consumers:
 
 ```
                           ┌─────────────────────┐
@@ -233,56 +218,31 @@ Transforms API responses into different output formats:
 ```python
 formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
 formatter_registry.register("jira", "issue", "rich", JiraIssueRichFormatter())
+formatter_registry.register("jira", "issue", "markdown", JiraIssueMarkdownFormatter())
 ```
 
 **Lookup:**
 ```python
-# In response.py
 formatter = formatter_registry.get("ai", plugin="jira", data_type="issue")
-# Returns JiraIssueAIFormatter
+return PlainTextResponse(formatter.format(data))
 ```
 
-### 5. Dependency Injection (deps.py)
+### 6. Configuration (lib/config.py)
 
-FastAPI dependencies provide the Jira client:
+Credentials loaded from `~/.env.jira`:
 
-```python
-def jira():
-    """Get Jira client from connector registry."""
-    connector = connector_registry.get_optional("jira")
-    if connector is None:
-        raise HTTPException(503, "Jira connector not registered")
-    if not connector.healthy:
-        raise HTTPException(503, f"Jira not connected (circuit: {connector.circuit_state})")
-    return connector.client
+**Jira Cloud:**
+```bash
+JIRA_URL=https://yourcompany.atlassian.net
+JIRA_USERNAME=your-email@example.com
+JIRA_API_TOKEN=your-api-token
 ```
 
-Used in route registration:
-```python
-register_tools(router, ALL_TOOLS, client_dependency=Depends(jira))
+**Jira Server/DC:**
+```bash
+JIRA_URL=https://jira.yourcompany.com
+JIRA_PERSONAL_TOKEN=your-personal-access-token
 ```
-
-### 6. CLI Routing (toolbus/cli/plugin_router.py)
-
-Converts CLI args to HTTP requests:
-
-```
-jira issue PROJ-123 --format rich --expand changelog
-  │    │      │          │            │
-  │    │      │          │            └─ Query param: expand=changelog
-  │    │      │          └─ Query param: format=rich
-  │    │      └─ Path segment
-  │    └─ Path segment
-  └─ Plugin name
-
-Result: GET /jira/issue/PROJ-123?format=rich&expand=changelog
-```
-
-**Method detection:**
-1. Fetch OpenAPI spec from daemon
-2. Match path pattern
-3. If multiple methods available, use params to decide
-4. Fallback: heuristics based on param names
 
 ## Data Flow Patterns
 
@@ -292,13 +252,19 @@ Result: GET /jira/issue/PROJ-123?format=rich&expand=changelog
 jira issue PROJ-123
     │
     ▼
-GET /jira/issue/PROJ-123
+bin/jira: ensure_server() + route_request()
     │
     ▼
-GetIssue.execute(ctx)
+GET http://127.0.0.1:9200/jira/issue/PROJ-123
     │
     ▼
-ctx.client.issue("PROJ-123")
+routes/issues.py: get_issue()
+    │
+    ▼
+Depends(jira) → deps.py: get_client()
+    │
+    ▼
+client.issue("PROJ-123")
     │
     ▼
 Jira API → JSON response
@@ -310,35 +276,29 @@ formatted(data, "ai", "issue")
 JiraIssueAIFormatter.format(data)
     │
     ▼
-PlainTextResponse("ISSUE: PROJ-123\nstatus: Open\n...")
+PlainTextResponse
 ```
 
-### Pattern 2: Bulk Fetch (Parallel)
+### Pattern 2: Search with JQL
 
 ```
-jira issues HMKG-1,HMKG-2,HMKG-3
+jira search --jql 'project = PROJ AND status != Done'
     │
     ▼
-GET /jira/issues?keys=HMKG-1,HMKG-2,HMKG-3
+bin/jira: URL-encode JQL with --data-urlencode
     │
     ▼
-GetIssues.execute(ctx)
+GET /jira/search?jql=project%20%3D%20PROJ%20AND%20status%20%21%3D%20Done
     │
-    ├───────────────┬───────────────┐
-    ▼               ▼               ▼
-asyncio.to_thread  asyncio.to_thread  asyncio.to_thread
-fetch_one(HMKG-1)  fetch_one(HMKG-2)  fetch_one(HMKG-3)
-    │               │               │
-    └───────────────┴───────────────┘
-                    │
-                    ▼
-            asyncio.gather()
-                    │
-                    ▼
-            Aggregate results
-                    │
-                    ▼
-            formatted(response, "ai", "search")
+    ▼
+routes/search.py: preprocess_jql()
+    │   └─ Converts != to NOT field = (workaround for library bug)
+    │
+    ▼
+client.jql(processed_jql, limit=50)
+    │
+    ▼
+formatted(issues, "ai", "search")
 ```
 
 ### Pattern 3: Write Operation
@@ -350,41 +310,39 @@ jira transition PROJ-123 --transition "In Progress"
 POST /jira/transition/PROJ-123?transition=In%20Progress
     │
     ▼
-Transition.execute(ctx)
+routes/workflow.py: transition_issue()
     │
-    ├─▶ ctx.client.get_issue_transitions("PROJ-123")
+    ├─▶ client.get_issue_transitions("PROJ-123")
     │       │
     │       ▼
-    │   Find matching transition ID
+    │   Find matching transition by name
     │       │
     │       ▼
-    │   (not found?) → ToolResult(error="...", status=400)
+    │   (not found?) → formatted_error("Transition not found", ...)
     │
-    └─▶ ctx.client.set_issue_status_by_transition_id(key, id)
+    └─▶ client.set_issue_status_by_transition_id(key, transition_id)
             │
             ▼
-        ToolResult(data={"key": "PROJ-123", "transition": "In Progress"})
+        success({"key": "PROJ-123", "transitioned_to": "In Progress"})
 ```
 
 ## Extension Points
 
-### Adding a New Tool
+### Adding a New Route
 
 ```
-tools/myfeature.py
+routes/myfeature.py
         │
         ▼
-class MyFeature(Tool):
-    # 1. Define fields (become CLI params)
-    # 2. Define Meta (path, method)
-    # 3. Implement execute()
+1. Create router = APIRouter()
+2. Define endpoints with @router.get/post/etc
+3. Use Depends(jira) for client access
+4. Use formatted() for response formatting
         │
         ▼
-tools/__init__.py
-    ALL_TOOLS.append(MyFeature)
-        │
-        ▼
-Auto-registered on next daemon restart
+routes/__init__.py
+    1. Import router
+    2. Add to create_router()
 ```
 
 ### Adding a New Formatter
@@ -393,85 +351,65 @@ Auto-registered on next daemon restart
 formatters/myentity.py
         │
         ▼
-class MyEntityAIFormatter(AIFormatter):
-    def format(self, data): ...
+1. Create classes extending AIFormatter, RichFormatter, MarkdownFormatter
+2. Implement format(self, data) method
         │
         ▼
 formatters/__init__.py
-    1. Import class
+    1. Import classes
     2. Add to __all__
     3. Register in register_jira_formatters()
 ```
 
-### Adding a New Entity Type
-
-Full workflow for adding support for a new Jira entity:
-
-```
-1. tools/newentity.py
-   └─ GetNewEntity, CreateNewEntity, etc.
-
-2. formatters/newentity.py
-   └─ NewEntityAIFormatter, NewEntityRichFormatter
-
-3. formatters/__init__.py
-   └─ Import and register formatters
-
-4. tools/__init__.py
-   └─ Add to ALL_TOOLS
-
-5. skills/jira/references/commands.md
-   └─ Document new commands
-
-6. tests/routes/test_newentity.py
-   └─ Add route tests
-```
-
-## Configuration Loading
-
-```
-~/.env.jira
-     │
-     ▼
-lib/config.py
-     │
-     ├─ JIRA_URL=...
-     ├─ JIRA_USERNAME=... (Cloud)
-     ├─ JIRA_API_TOKEN=... (Cloud)
-     └─ JIRA_PERSONAL_TOKEN=... (Server/DC)
-     │
-     ▼
-lib/client.py: get_jira_client()
-     │
-     ├─ Detect Cloud vs Server/DC
-     ├─ Create atlassian.Jira instance
-     └─ Return configured client
-```
-
 ## Error Handling
 
-```
-Exception Type                Handler Location              Result
-────────────────────────────────────────────────────────────────────
-ValidationError               ToolRegistry                  422 + field errors
-HTTPException                 FastAPI                       Specified status
-JiraConnector circuit open    deps.py                       503 + circuit state
-Jira API 404                  Tool.execute()                404 + "not found"
-Jira API 401/403              Tool.execute()                401/403 + message
-Generic Exception             ToolRegistry                  500 + error message
+All routes use consistent error handling via `response.py`:
+
+```python
+# Success
+return formatted(data, format, "issue")
+
+# Error with hint
+return formatted_error("Issue not found", hint="Check issue key", fmt=format, status=404)
 ```
 
-## Performance Considerations
+Custom 404 handler in `main.py` provides helpful messages for missing parameters:
 
-1. **Parallel bulk fetch**: GetIssues uses asyncio.gather() with thread pool
-2. **Circuit breaker**: Prevents hammering failed API
-3. **Daemon architecture**: Persistent connection, no auth overhead per request
-4. **AI format**: Token-efficient output reduces LLM context usage
-5. **IPv6 loopback**: Bypasses security software that intercepts IPv4 localhost
+```python
+ROUTES_REQUIRING_KEY = {
+    "/jira/watchers": "watchers/{key} - List watchers for an issue",
+    "/jira/comments": "comments/{key} - List comments for an issue",
+    ...
+}
+```
 
 ## Security
 
 - Credentials stored in `~/.env.jira` (chmod 600 recommended)
-- Daemon binds to loopback only (`[::1]:9100`)
+- Server binds to localhost only (`127.0.0.1:9200`)
 - No secrets in logs or error messages
 - Circuit breaker prevents credential stuffing via repeated failures
+
+## Performance
+
+1. **Persistent server**: Connection reuse, no startup overhead per request
+2. **Circuit breaker**: Prevents hammering failed API
+3. **AI format**: Token-efficient output reduces LLM context usage
+4. **JQL preprocessing**: Workarounds for library bugs handled once
+
+## File Structure
+
+```
+jira/1.3.0/
+├── bin/jira                    # Self-bootstrapping CLI
+├── jira/                       # Python package
+│   ├── main.py                 # FastAPI app
+│   ├── deps.py                 # Dependency injection + circuit breaker
+│   ├── response.py             # Response formatting
+│   ├── routes/                 # Endpoint handlers
+│   ├── formatters/             # Output formatters
+│   └── lib/                    # Config, client utilities
+├── skills/                     # Claude Code skills
+├── tests/                      # Test suite
+└── pyproject.toml              # Package config
+```
