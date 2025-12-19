@@ -1,32 +1,29 @@
-# Jira Plugin for AI Tool Bridge
+# Jira CLI for Claude Code
 
-**Version 1.2.0** | Issue tracking and workflow automation for AI agents.
+**Version 2.0.0** | Standalone Jira CLI for issue tracking and workflow automation.
 
 ## Overview
 
-A plugin that enables AI agents to interact with Jira through a unified CLI interface. Designed for token-efficient communication with LLMs while providing rich terminal output for humans.
+A self-contained Jira CLI that runs as a local FastAPI server. Designed for token-efficient communication with LLMs while providing rich terminal output for humans.
 
 ```
 ┌─────────────────┐     ┌───────────────────┐     ┌─────────────┐
-│  Claude/AI      │────▶│  AI Tool Bridge   │────▶│  Jira API   │
-│  Agent          │◀────│  (FastAPI daemon) │◀────│  Cloud/DC   │
+│  Claude/AI      │────▶│  bin/jira         │────▶│  Jira API   │
+│  Agent          │◀────│  (auto-start srv) │◀────│  Cloud/DC   │
 └─────────────────┘     └───────────────────┘     └─────────────┘
-        │                        │
-        │                        ▼
-        │               ┌───────────────────┐
-        └──────────────▶│  jira CLI         │
-                        │  (thin wrapper)   │
-                        └───────────────────┘
+                                │
+                                ▼
+                       ┌───────────────────┐
+                       │  FastAPI server   │
+                       │  (port 9200)      │
+                       └───────────────────┘
 ```
 
 ## Quick Start
 
 ```bash
-# Get an issue (AI-optimized format by default)
+# First run auto-creates venv and starts server
 jira issue PROJ-123
-
-# Bulk fetch multiple issues (parallel, fast)
-jira issues HMKG-1,HMKG-2,HMKG-3
 
 # Search with JQL
 jira search --jql 'assignee = currentUser()'
@@ -38,14 +35,14 @@ jira transition PROJ-123 --transition "In Progress"
 jira comment PROJ-123 --body "Work completed"
 
 # Full command list
-jira --help
+jira help
 ```
 
 ## Features
 
 | Category | Capabilities |
 |----------|--------------|
-| **Issues** | Get, create, update, bulk fetch (parallel) |
+| **Issues** | Get, create, update issues |
 | **Search** | JQL queries with pagination |
 | **Workflow** | Transitions, status changes |
 | **Comments** | List, add comments |
@@ -68,6 +65,26 @@ jira issue PROJ-123 --format rich     # Terminal colors
 jira issue PROJ-123 --format json     # Raw JSON
 ```
 
+## Tmux Integration (Optional)
+
+When using `--format rich` or `--format human` inside a tmux session, output automatically opens in a new tmux window with clickable hyperlinks.
+
+**Requirements:**
+- tmux 3.4+ installed
+- Running inside a tmux session (`$TMUX` set)
+
+**Recommended tmux config** (`~/.tmux.conf`):
+```bash
+# Enable mouse scroll
+set -g mouse on
+
+# Enable hyperlinks (adjust terminal type as needed)
+set -ga terminal-features ",xterm-256color:hyperlinks"
+set -ga terminal-features ",xterm-ghostty:hyperlinks"  # For Ghostty terminal
+```
+
+**Clicking links:** Use `Ctrl+Shift+Click` (Linux) or `Cmd+Shift+Click` (macOS) when mouse mode is enabled.
+
 ## Configuration
 
 Create `~/.env.jira`:
@@ -85,34 +102,40 @@ JIRA_URL=https://jira.company.com
 JIRA_PERSONAL_TOKEN=your-pat
 ```
 
+## Server Management
+
+```bash
+jira start      # Start server (background)
+jira stop       # Stop server
+jira status     # Show server status
+jira restart    # Restart server
+jira logs       # Tail server logs
+jira health     # Check Jira connection
+```
+
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Deep dive into component relationships |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Deep dive into standalone architecture |
 | [EXTENDING.md](EXTENDING.md) | Guide to adding new functionality |
-| [jira/README.md](jira/README.md) | Plugin internals and lifecycle |
-| [jira/tools/README.md](jira/tools/README.md) | Tool class patterns |
-| [jira/formatters/README.md](jira/formatters/README.md) | Output formatting system |
 
 ## Project Structure
 
 ```
-jira-plugin/
+jira/
 ├── README.md              # This file
 ├── ARCHITECTURE.md        # How everything connects
 ├── EXTENDING.md           # Adding new functionality
 ├── bin/
-│   └── jira               # CLI wrapper script
-├── jira/                  # Main package
-│   ├── plugin.py          # Entry point, lifecycle
-│   ├── connector.py       # Jira API client wrapper
-│   ├── deps.py            # FastAPI dependencies
+│   └── jira               # Self-bootstrapping CLI wrapper
+├── jira/                  # Main Python package
+│   ├── main.py            # FastAPI server entry point
+│   ├── deps.py            # Dependency injection
 │   ├── response.py        # Response formatting
-│   ├── tools/             # CLI commands as Tool classes
+│   ├── routes/            # Endpoint handlers
 │   ├── formatters/        # Output formatters
-│   ├── routes/            # Help endpoint
-│   └── lib/               # Shared utilities
+│   └── lib/               # Config, client utilities
 ├── skills/                # Claude Code skills
 │   ├── jira/              # Main Jira skill
 │   └── jira-syntax/       # Wiki markup skill
@@ -122,24 +145,24 @@ jira-plugin/
 ## Development
 
 ```bash
-cd ~/.claude/plugins/marketplaces/sebastian-marketplace/plugins/jira
-
 # Run tests
-uv run pytest tests/ -v
+cd /path/to/jira-plugin
+pytest tests/ -v
 
-# Reload plugin after changes
-~/.claude/.../ai-tool-bridge/.venv/bin/bridge reload
+# Restart server after changes
+jira restart
 
-# Check plugin health
+# Check server health
 jira health
 ```
 
 ## Version History
 
-- **1.2.0**: Bulk issue fetch with parallel execution, field validation, linked issues expansion
+- **2.0.0**: Standalone architecture - no bridge dependency, self-bootstrapping CLI
+- **1.2.0**: Bulk issue fetch with parallel execution, field validation
 - **1.1.0**: User/health formatters, registry fix, route tests
 - **1.0.0**: Initial release
 
 ## License
 
-Internal use only.
+MIT
