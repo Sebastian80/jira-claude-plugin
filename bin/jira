@@ -40,6 +40,28 @@ log() {
     echo "[jira] $*" >&2
 }
 
+# Determine HTTP method based on endpoint name
+# Returns: POST, PATCH, DELETE, or GET (default)
+get_method_for_endpoint() {
+    local endpoint="$1"
+    case "$endpoint" in
+        # POST endpoints (create/add operations)
+        create|comment|transition|worklog|attachment|watcher|weblink|link|component|version)
+            echo "POST" ;;
+        # PATCH endpoints (update operations)
+        update)
+            echo "PATCH" ;;
+        # Default to GET for read operations
+        *)
+            echo "GET" ;;
+    esac
+}
+
+# URL-encode a string using Python
+urlencode() {
+    python3 -c "import urllib.parse; print(urllib.parse.quote('''$1''', safe=''))"
+}
+
 ensure_venv() {
     if [[ ! -d "$VENV_DIR" ]]; then
         log "Creating virtual environment..."
@@ -149,7 +171,7 @@ route_request() {
 
     local path_args=()
     local query_params=()
-    local method="GET"
+    local method_override=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -167,7 +189,7 @@ route_request() {
                 fi
                 ;;
             -X)
-                method="$2"
+                method_override="$2"
                 shift
                 ;;
             *)
@@ -178,25 +200,42 @@ route_request() {
         shift
     done
 
+    # Determine HTTP method: explicit override > auto-detection
+    local method
+    if [[ -n "$method_override" ]]; then
+        method="$method_override"
+    else
+        method=$(get_method_for_endpoint "$endpoint")
+    fi
+
     # Build URL path
     local url="$BASE_URL/jira/$endpoint"
     for arg in "${path_args[@]}"; do
         url="$url/$arg"
     done
 
-    # Build curl command with proper URL encoding
+    # Build query string manually for proper encoding
+    local query_string=""
+    if [[ ${#query_params[@]} -gt 0 ]]; then
+        for param in "${query_params[@]}"; do
+            local key="${param%%=*}"
+            local value="${param#*=}"
+            local encoded_value
+            encoded_value=$(urlencode "$value")
+            if [[ -n "$query_string" ]]; then
+                query_string="${query_string}&${key}=${encoded_value}"
+            else
+                query_string="${key}=${encoded_value}"
+            fi
+        done
+        url="${url}?${query_string}"
+    fi
+
+    # Build curl command
     local curl_args=(-s -w "\n%{http_code}")
 
     if [[ "$method" != "GET" ]]; then
         curl_args+=(-X "$method")
-    fi
-
-    # Add query params with proper encoding using --data-urlencode
-    if [[ ${#query_params[@]} -gt 0 ]]; then
-        curl_args+=(--get)
-        for param in "${query_params[@]}"; do
-            curl_args+=(--data-urlencode "$param")
-        done
     fi
 
     curl_args+=("$url")
