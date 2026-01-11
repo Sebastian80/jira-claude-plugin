@@ -17,6 +17,7 @@ from .base import (
     Table,
     Text,
     box,
+    convert_jira_markup,
     get_priority_style,
     get_status_style,
     get_type_icon,
@@ -130,10 +131,11 @@ class JiraIssueRichFormatter(RichFormatter):
         if f.get("description"):
             parts.append(Text(""))  # Blank line
             parts.append(Text("Description", style="bold dim"))
-            desc = f["description"][:500]
-            if len(f["description"]) > 500:
+            desc = f["description"][:800]
+            if len(f["description"]) > 800:
                 desc += "..."
-            parts.append(Text(desc, style="dim"))
+            # Convert Jira wiki markup to styled text
+            parts.append(convert_jira_markup(desc))
 
         # Create panel with title (clickable issue key via Rich Text)
         title = Text.assemble(

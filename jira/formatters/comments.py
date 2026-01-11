@@ -13,6 +13,7 @@ from .base import (
     RichFormatter,
     Text,
     box,
+    convert_jira_markup,
     render_to_string,
 )
 
@@ -50,8 +51,11 @@ class JiraCommentsRichFormatter(RichFormatter):
             title.append(author, style="cyan bold")
             title.append(f"  {created}", style="dim")
 
+            # Convert Jira wiki markup in comment body
+            formatted_body = convert_jira_markup(body)
+
             panel = Panel(
-                body,
+                formatted_body,
                 title=title,
                 title_align="left",
                 box=box.SIMPLE,

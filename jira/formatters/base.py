@@ -32,6 +32,7 @@ __all__ = [
     "get_type_icon",
     "get_status_style",
     "get_priority_style",
+    "convert_jira_markup",
     # Rich re-exports for formatters
     "Table",
     "Panel",
@@ -269,3 +270,128 @@ def render_to_string(renderable) -> str:
     console = Console(file=StringIO(), force_terminal=True, width=80)
     console.print(renderable)
     return console.file.getvalue().rstrip()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Jira Wiki Markup Conversion
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import re as _re
+
+
+def convert_jira_markup(text: str) -> Text:
+    """Convert Jira wiki markup to Rich Text.
+
+    Handles:
+    - h1. h2. h3. etc → Bold headings
+    - # numbered lists → 1. 2. 3.
+    - * bullet lists → •
+    - *bold* → bold
+    - _italic_ → italic
+    - {{code}} → monospace
+    - {code}...{code} → code block
+    - [text|url] → link text
+    """
+    if not text:
+        return Text("")
+
+    lines = text.split("\n")
+    result = Text()
+    list_counter = 0
+
+    for i, line in enumerate(lines):
+        if i > 0:
+            result.append("\n")
+
+        # Headings: h1. h2. h3. etc
+        heading_match = _re.match(r"^h([1-6])\.\s*(.*)$", line)
+        if heading_match:
+            level = int(heading_match.group(1))
+            heading_text = heading_match.group(2)
+            # Convert inline markup in heading
+            result.append(_convert_inline_markup(heading_text, base_style="bold"))
+            list_counter = 0
+            continue
+
+        # Numbered list: # item
+        if line.startswith("# "):
+            list_counter += 1
+            item_text = line[2:]
+            result.append(f"{list_counter}. ", style="cyan")
+            result.append(_convert_inline_markup(item_text))
+            continue
+
+        # Bullet list: * item (but not **bold**)
+        if _re.match(r"^\* (?!\*)", line):
+            item_text = line[2:]
+            result.append("• ", style="cyan")
+            result.append(_convert_inline_markup(item_text))
+            list_counter = 0
+            continue
+
+        # Code block: {code}...{code}
+        if line.strip().startswith("{code"):
+            # Skip code markers, content will be on next lines
+            continue
+        if line.strip() == "{code}":
+            continue
+
+        # Regular line - convert inline markup
+        result.append(_convert_inline_markup(line))
+        if not line.startswith("# "):
+            list_counter = 0
+
+    return result
+
+
+def _convert_inline_markup(text: str, base_style: str = "") -> Text:
+    """Convert inline Jira markup to Rich Text.
+
+    Args:
+        text: Text with Jira markup
+        base_style: Base style to apply (e.g., "bold" for headings)
+    """
+    result = Text()
+
+    # Process the text character by character with regex
+    # Pattern order matters - more specific patterns first
+    patterns = [
+        # {{monospace}}
+        (r"\{\{([^}]+)\}\}", "code", "cyan"),
+        # *bold* (but not ** which would be empty)
+        (r"\*([^*]+)\*", "bold", base_style + " bold" if base_style else "bold"),
+        # _italic_
+        (r"_([^_]+)_", "italic", base_style + " italic" if base_style else "italic"),
+        # -strikethrough-
+        (r"-([^-]+)-", "strike", "strike"),
+        # [text|url] or [url]
+        (r"\[([^|\]]+)(?:\|[^\]]+)?\]", "link", "cyan underline"),
+    ]
+
+    # Simple approach: find and replace patterns, building styled text
+    remaining = text
+    while remaining:
+        earliest_match = None
+        earliest_pos = len(remaining)
+        matched_style = base_style or ""
+
+        for pattern, _, style in patterns:
+            match = _re.search(pattern, remaining)
+            if match and match.start() < earliest_pos:
+                earliest_match = match
+                earliest_pos = match.start()
+                matched_style = style
+
+        if earliest_match:
+            # Add text before match
+            if earliest_pos > 0:
+                result.append(remaining[:earliest_pos], style=base_style or None)
+            # Add matched text with style
+            result.append(earliest_match.group(1), style=matched_style)
+            remaining = remaining[earliest_match.end():]
+        else:
+            # No more matches, add remaining text
+            result.append(remaining, style=base_style or None)
+            break
+
+    return result

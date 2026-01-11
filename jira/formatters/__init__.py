@@ -53,6 +53,7 @@ from .user import (
 from .watchers import JiraWatchersAIFormatter, JiraWatchersRichFormatter
 from .weblinks import JiraWebLinksAIFormatter, JiraWebLinksRichFormatter
 from .worklogs import JiraWorklogsAIFormatter, JiraWorklogsRichFormatter
+from .show import JiraShowAIFormatter, JiraShowMarkdownFormatter, JiraShowRichFormatter
 
 __all__ = [
     # Base classes
@@ -124,6 +125,10 @@ __all__ = [
     "JiraHealthRichFormatter",
     "JiraHealthAIFormatter",
     "JiraHealthMarkdownFormatter",
+    # Show (combined issue+comments) formatters
+    "JiraShowRichFormatter",
+    "JiraShowAIFormatter",
+    "JiraShowMarkdownFormatter",
     # Registration function
     "register_jira_formatters",
 ]
@@ -193,3 +198,8 @@ def register_jira_formatters():
     formatter_registry.register("jira", "health", "rich", JiraHealthRichFormatter())
     formatter_registry.register("jira", "health", "ai", JiraHealthAIFormatter())
     formatter_registry.register("jira", "health", "markdown", JiraHealthMarkdownFormatter())
+
+    # Show (combined issue+comments) formatters
+    formatter_registry.register("jira", "show", "rich", JiraShowRichFormatter())
+    formatter_registry.register("jira", "show", "ai", JiraShowAIFormatter())
+    formatter_registry.register("jira", "show", "markdown", JiraShowMarkdownFormatter())
