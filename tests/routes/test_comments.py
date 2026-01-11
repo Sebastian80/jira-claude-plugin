@@ -68,14 +68,15 @@ class TestCommentHelp:
 
     def test_comments_help(self):
         """Should show help for comments command."""
-        stdout, stderr, code = run_cli_raw("jira", "comments", "--help")
-        assert code == 0 or "comment" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "comments")
+        assert code == 0
+        assert "comment" in stdout.lower()
 
     def test_comment_help(self):
-        """Should show comment help with wiki markup guidance."""
-        stdout, stderr, code = run_cli_raw("jira", "comment", "--help")
-        assert "wiki markup" in stdout.lower() or "Jira" in stdout
+        """Should show help for comment command."""
+        stdout, stderr, code = run_cli_raw("help", "comment")
         assert code == 0
+        assert "comment" in stdout.lower()
 
 
 class TestAddComment:

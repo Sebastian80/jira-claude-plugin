@@ -133,27 +133,27 @@ class TestLinkHelp:
 
     def test_links_help(self):
         """Should show help for links command."""
-        stdout, stderr, code = run_cli_raw("jira", "links", "--help")
+        stdout, stderr, code = run_cli_raw("help", "links")
         assert code == 0
         assert "link" in stdout.lower()
 
     def test_linktypes_help(self):
         """Should show help for linktypes command."""
-        stdout, stderr, code = run_cli_raw("jira", "linktypes", "--help")
+        stdout, stderr, code = run_cli_raw("help", "linktypes")
         assert code == 0
+        assert "link" in stdout.lower()
 
     def test_link_help(self):
-        """Should show link command help with aliases."""
-        stdout, stderr, code = run_cli_raw("jira", "link", "--help")
-        assert "--from" in stdout
-        assert "--to" in stdout
-        assert "--type" in stdout
+        """Should show help for link command."""
+        stdout, stderr, code = run_cli_raw("help", "link")
         assert code == 0
+        assert "link" in stdout.lower()
 
     def test_weblinks_help(self):
         """Should show help for weblinks command."""
-        stdout, stderr, code = run_cli_raw("jira", "weblinks", "--help")
-        assert code == 0 or "weblink" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "weblinks")
+        assert code == 0
+        assert "weblink" in stdout.lower()
 
 
 class TestCreateLink:

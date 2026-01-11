@@ -37,8 +37,11 @@ def run_cli(*args, expect_success=True) -> dict | list | str:
     Returns:
         Parsed JSON response or raw output string
     """
-    # Add --format json to get parseable output
     args_list = list(args)
+    # Strip redundant "jira" prefix - tests call run_cli("jira", "cmd") but CLI is already jira
+    if args_list and args_list[0] == "jira":
+        args_list = args_list[1:]
+    # Add --format json to get parseable output
     if "--format" not in args_list:
         args_list.extend(["--format", "json"])
     cmd = [JIRA_CMD] + args_list
@@ -84,6 +87,10 @@ def run_cli_raw(*args) -> tuple[str, str, int]:
     Returns:
         Tuple of (stdout, stderr, return_code)
     """
-    cmd = [JIRA_CMD] + list(args)
+    args_list = list(args)
+    # Strip redundant "jira" prefix
+    if args_list and args_list[0] == "jira":
+        args_list = args_list[1:]
+    cmd = [JIRA_CMD] + args_list
     result = subprocess.run(cmd, capture_output=True, text=True)
     return result.stdout, result.stderr, result.returncode

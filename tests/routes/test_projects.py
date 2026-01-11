@@ -174,10 +174,11 @@ class TestProjectEdgeCases:
     def test_project_invalid_key_case(self):
         """Should handle lowercase project key."""
         # Jira project keys are typically uppercase
-        stdout, stderr, code = run_cli_raw("jira", "project", TEST_PROJECT.lower())
+        stdout, stderr, code = run_cli_raw("project", TEST_PROJECT.lower())
         combined_lower = (stdout + stderr).lower()
-        # May work (Jira sometimes accepts lowercase) or return error
-        assert code == 0 or "not found" in combined_lower or "error" in combined_lower
+        # May work (Jira sometimes accepts lowercase) or return error (German: "konnte kein Projekt...gefunden werden")
+        assert (code == 0 or "not found" in combined_lower or "error" in combined_lower or
+                "gefunden" in combined_lower or "konnte" in combined_lower)
 
     def test_project_empty_key(self):
         """Should handle missing project key."""

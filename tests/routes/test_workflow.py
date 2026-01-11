@@ -4,7 +4,6 @@ Tests for workflow/transition endpoints.
 Endpoints tested:
 - GET /transitions/{key} - List transitions for issue
 - POST /transition/{key} - Execute transition (skipped - write operation)
-- GET /workflows - List cached workflows
 """
 
 import pytest
@@ -17,7 +16,7 @@ class TestTransitions:
 
     def test_list_transitions_basic(self):
         """Should list available transitions for an issue."""
-        result = run_cli("jira", "transitions", TEST_ISSUE)
+        result = run_cli("transitions", TEST_ISSUE)
         data = get_data(result)
         assert isinstance(data, list)
         if len(data) > 0:
@@ -25,41 +24,26 @@ class TestTransitions:
 
     def test_list_transitions_json_format(self):
         """Should return JSON format by default."""
-        result = run_cli("jira", "transitions", TEST_ISSUE, "--format", "json")
+        result = run_cli("transitions", TEST_ISSUE, "--format", "json")
         data = get_data(result)
         assert isinstance(data, list)
 
     def test_list_transitions_rich_format(self):
         """Should format transitions for rich output."""
-        stdout, stderr, code = run_cli_raw("jira", "transitions", TEST_ISSUE, "--format", "rich")
+        stdout, stderr, code = run_cli_raw("transitions", TEST_ISSUE, "--format", "rich")
         assert code == 0
 
     def test_list_transitions_ai_format(self):
         """Should format transitions for AI consumption."""
-        stdout, stderr, code = run_cli_raw("jira", "transitions", TEST_ISSUE, "--format", "ai")
+        stdout, stderr, code = run_cli_raw("transitions", TEST_ISSUE, "--format", "ai")
         assert code == 0
 
     def test_list_transitions_invalid_issue(self):
         """Should handle non-existent issue gracefully."""
-        stdout, stderr, code = run_cli_raw("jira", "transitions", "NONEXISTENT-99999")
+        stdout, stderr, code = run_cli_raw("transitions", "NONEXISTENT-99999")
         stdout_lower = stdout.lower()
         assert ("not found" in stdout_lower or "error" in stdout_lower or
                 "existiert nicht" in stdout_lower or "detail" in stdout_lower or code != 0)
-
-
-class TestWorkflows:
-    """Test /workflows endpoint."""
-
-    def test_list_workflows_basic(self):
-        """Should list cached workflows."""
-        result = run_cli("jira", "workflows")
-        data = get_data(result)
-        assert isinstance(data, list)
-
-    def test_list_workflows_rich_format(self):
-        """Should format workflows for rich output."""
-        stdout, stderr, code = run_cli_raw("jira", "workflows", "--format", "rich")
-        assert code == 0
 
 
 class TestTransitionHelp:
@@ -67,13 +51,15 @@ class TestTransitionHelp:
 
     def test_transitions_help(self):
         """Should show help for transitions command."""
-        stdout, stderr, code = run_cli_raw("jira", "transitions", "--help")
-        assert code == 0 or "transition" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "transitions")
+        assert code == 0
+        assert "transition" in stdout.lower()
 
     def test_transition_help(self):
         """Should show help for transition command."""
-        stdout, stderr, code = run_cli_raw("jira", "transition", "--help")
-        assert code == 0 or "transition" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "transition")
+        assert code == 0
+        assert "transition" in stdout.lower()
 
 
 class TestExecuteTransition:

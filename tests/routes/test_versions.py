@@ -95,13 +95,15 @@ class TestVersionHelp:
 
     def test_versions_help(self):
         """Should show help for versions command."""
-        stdout, stderr, code = run_cli_raw("jira", "versions", "--help")
-        assert code == 0 or "versions" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "versions")
+        assert code == 0
+        assert "version" in stdout.lower()
 
     def test_version_help(self):
         """Should show help for version command."""
-        stdout, stderr, code = run_cli_raw("jira", "version", "--help")
-        assert code == 0 or "version" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "version")
+        assert code == 0
+        assert "version" in stdout.lower()
 
 
 class TestCreateVersion:
@@ -138,10 +140,11 @@ class TestVersionEdgeCases:
 
     def test_version_lowercase_project(self):
         """Should handle lowercase project key."""
-        stdout, stderr, code = run_cli_raw("jira", "versions", TEST_PROJECT.lower())
+        stdout, stderr, code = run_cli_raw("versions", TEST_PROJECT.lower())
         combined_lower = (stdout + stderr).lower()
-        # May work or return error
-        assert code == 0 or "not found" in combined_lower or "error" in combined_lower
+        # May work or return error (German: "konnte kein Projekt...gefunden werden")
+        assert (code == 0 or "not found" in combined_lower or "error" in combined_lower or
+                "gefunden" in combined_lower or "konnte" in combined_lower)
 
 
 if __name__ == "__main__":

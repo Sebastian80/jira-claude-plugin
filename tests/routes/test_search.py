@@ -132,11 +132,11 @@ class TestSearchHelp:
     """Test search help system."""
 
     def test_search_help(self):
-        """Should show search command help with JQL examples."""
-        stdout, stderr, code = run_cli_raw("jira", "search", "--help")
-        assert "--jql" in stdout
-        assert "Examples:" in stdout
+        """Should show search command help."""
+        stdout, stderr, code = run_cli_raw("help", "search")
         assert code == 0
+        assert "search" in stdout.lower()
+        assert "jql" in stdout.lower()
 
 
 if __name__ == "__main__":

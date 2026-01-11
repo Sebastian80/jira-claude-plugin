@@ -111,13 +111,15 @@ class TestFiltersHelp:
 
     def test_filters_help(self):
         """Should show help for filters command."""
-        stdout, stderr, code = run_cli_raw("jira", "filters", "--help")
-        assert code == 0 or "filters" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "filters")
+        assert code == 0
+        assert "filter" in stdout.lower()
 
     def test_filter_help(self):
         """Should show help for filter command."""
-        stdout, stderr, code = run_cli_raw("jira", "filter", "--help")
-        assert code == 0 or "filter" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "filter")
+        assert code == 0
+        assert "filter" in stdout.lower()
 
 
 class TestFilterIntegration:

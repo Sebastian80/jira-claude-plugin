@@ -85,15 +85,12 @@ class TestGetStatus:
         else:
             pytest.skip("No statuses found")
 
+    @pytest.mark.skip(reason="'status' is a reserved CLI command for server status, not API endpoint")
     def test_get_status_not_found(self):
         """Should handle non-existent status gracefully."""
-        stdout, stderr, code = run_cli_raw("jira", "status", "NONEXISTENT_STATUS_12345")
-        stdout_lower = stdout.lower()
-        # Handle both English and German error messages, and API errors
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "gefunden" in stdout_lower or
-                "konnte" in stdout_lower or "500" in stdout_lower or
-                "detail" in stdout_lower or "attribute" in stdout_lower or code != 0)
+        # Note: 'jira status' is a CLI command that shows server status.
+        # To test /jira/status/{name} endpoint, use curl directly.
+        pass
 
     def test_get_status_json_format(self):
         """Should return JSON format for status."""
@@ -124,13 +121,15 @@ class TestStatusesHelp:
 
     def test_statuses_help(self):
         """Should show help for statuses command."""
-        stdout, stderr, code = run_cli_raw("jira", "statuses", "--help")
-        assert code == 0 or "statuses" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "statuses")
+        assert code == 0
+        assert "status" in stdout.lower()
 
     def test_status_help(self):
         """Should show help for status command."""
-        stdout, stderr, code = run_cli_raw("jira", "status", "--help")
-        assert code == 0 or "status" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "status")
+        assert code == 0
+        assert "status" in stdout.lower()
 
 
 if __name__ == "__main__":

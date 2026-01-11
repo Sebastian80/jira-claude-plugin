@@ -92,13 +92,15 @@ class TestComponentHelp:
 
     def test_components_help(self):
         """Should show help for components command."""
-        stdout, stderr, code = run_cli_raw("jira", "components", "--help")
-        assert code == 0 or "components" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "components")
+        assert code == 0
+        assert "component" in stdout.lower()
 
     def test_component_help(self):
         """Should show help for component command."""
-        stdout, stderr, code = run_cli_raw("jira", "component", "--help")
-        assert code == 0 or "component" in stdout.lower()
+        stdout, stderr, code = run_cli_raw("help", "component")
+        assert code == 0
+        assert "component" in stdout.lower()
 
 
 class TestCreateComponent:
@@ -135,10 +137,11 @@ class TestComponentEdgeCases:
 
     def test_component_lowercase_project(self):
         """Should handle lowercase project key."""
-        stdout, stderr, code = run_cli_raw("jira", "components", TEST_PROJECT.lower())
+        stdout, stderr, code = run_cli_raw("components", TEST_PROJECT.lower())
         combined_lower = (stdout + stderr).lower()
-        # May work or return error
-        assert code == 0 or "not found" in combined_lower or "error" in combined_lower
+        # May work or return error (German: "konnte kein Projekt...gefunden werden")
+        assert (code == 0 or "not found" in combined_lower or "error" in combined_lower or
+                "gefunden" in combined_lower or "konnte" in combined_lower)
 
 
 if __name__ == "__main__":
