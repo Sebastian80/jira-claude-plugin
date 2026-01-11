@@ -46,7 +46,7 @@ get_method_for_endpoint() {
     local endpoint="$1"
     case "$endpoint" in
         # POST endpoints (create/add operations)
-        create|comment|transition|worklog|attachment|watcher|weblink|link|component|version)
+        create|comment|transition|worklog|attachment|watcher|weblink|link)
             echo "POST" ;;
         # PATCH endpoints (update operations)
         update)
@@ -253,40 +253,8 @@ route_request() {
     local body
     body=$(echo "$response" | head -n-1)
 
-    # Output response - use tmux popup for rich format
-    local use_popup=false
-    local in_tmux=false
-
-    # Detect tmux - check $TMUX or try tmux command
-    if [[ -n "$TMUX" ]] || tmux display-message -p '' >/dev/null 2>&1; then
-        in_tmux=true
-    fi
-
-    if [[ "$in_tmux" == "true" ]]; then
-        for param in "${query_params[@]}"; do
-            if [[ "$param" == "format=rich" ]]; then
-                use_popup=true
-                break
-            fi
-        done
-    fi
-
-    if [[ "$use_popup" == "true" ]]; then
-        local tmpfile
-        tmpfile=$(mktemp /tmp/jira-rich-XXXXXX.txt)
-        printf '%s\n' "$body" > "$tmpfile"
-
-        if [[ -t 0 && -t 1 ]]; then
-            # Interactive: show popup directly (blocking is fine)
-            tmux display-popup -E -w 90% -h 90% "less -R $tmpfile; rm -f $tmpfile"
-        else
-            # Non-interactive (Claude): spawn vertical split pane with real TTY
-            tmux split-window -h -l 45% bash -c "less -R '$tmpfile'; rm -f '$tmpfile'; read -p 'Press Enter to close'"
-            echo "Opened in split pane (q then Enter to close)"
-        fi
-    else
-        echo "$body"
-    fi
+    # Output response
+    echo "$body"
 
     # Return appropriate exit code
     if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
@@ -341,39 +309,6 @@ case "${1:-help}" in
     help|--help|-h)
         ensure_server
         route_request "help" "${@:2}"
-        ;;
-
-    browse)
-        # Open Jira issue in browsh (text-based browser via Docker)
-        if [[ -z "$2" ]]; then
-            echo "Usage: jira browse <issue-key>"
-            echo "Opens the Jira issue in browsh (text-based web browser)"
-            exit 1
-        fi
-        issue_key="$2"
-
-        # Get Jira URL from config
-        jira_url=""
-        if [[ -f "$HOME/.env.jira" ]]; then
-            jira_url=$(grep -E "^JIRA_URL=" "$HOME/.env.jira" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-        fi
-        if [[ -z "$jira_url" ]]; then
-            echo "Error: JIRA_URL not found in ~/.env.jira"
-            exit 1
-        fi
-
-        browse_url="${jira_url}/browse/${issue_key}"
-        log "Opening $browse_url in browsh..."
-
-        # Run browsh via Docker
-        if [[ -n "$TMUX" ]]; then
-            # In tmux: use split pane
-            tmux split-window -h -l 60% "docker run -it --rm browsh/browsh '$browse_url'; read -p 'Press Enter to close'"
-            echo "Opened in split pane (q to quit browsh, then Enter to close)"
-        else
-            # Not in tmux: run directly (requires interactive terminal)
-            docker run -it --rm browsh/browsh "$browse_url"
-        fi
         ;;
 
     *)
