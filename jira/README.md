@@ -8,7 +8,7 @@ Internal architecture and component documentation for the `jira/` Python package
 jira/
 ├── __init__.py      # Package init, formatter registration
 ├── main.py          # FastAPI server entry point
-├── deps.py          # Dependency injection (Jira client singleton)
+├── deps.py          # Dependency injection (fresh client per request)
 ├── response.py      # Response formatting utilities
 │
 ├── routes/          # FastAPI route handlers
@@ -67,7 +67,7 @@ jira/
           │
           ▼
 5. Dependency Injection (deps.py)
-   jira() → module singleton client
+   jira() → fresh client per request
           │
           ▼
 6. Jira API
@@ -105,24 +105,16 @@ app.include_router(create_router(), prefix="/jira")
 ### deps.py - Dependency Injection
 
 ```python
-# Module-level singleton
-_client = None
-_healthy = False
-
-def init_client():
-    """Initialize the Jira client singleton."""
-    global _client, _healthy
-    _client = get_jira_client()
-    _client.myself()  # Verify connection
-    _healthy = True
-
 def jira():
-    """FastAPI dependency - provides Jira client."""
-    client = get_client()
-    if client is None:
-        raise HTTPException(503, "Jira not connected")
-    return client
+    """FastAPI dependency - get fresh Jira client per request."""
+    try:
+        return get_jira_client()
+    except Exception as e:
+        raise HTTPException(503, f"Jira not connected: {e}")
 ```
+
+Fresh client per request avoids stale TCP connection issues after long idle periods.
+The ~100ms overhead is negligible for CLI usage.
 
 ### response.py - Output Formatting
 

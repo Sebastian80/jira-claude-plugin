@@ -26,7 +26,7 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 │  Standalone FastAPI Server (main.py, port 9200)                            │
 │  ──────────────────────────────────────────────                            │
 │  • Self-contained - no external dependencies                               │
-│  • Manages Jira client singleton                                           │
+│  • Creates fresh Jira client per request (avoids stale connections)        │
 │  • Routes requests to endpoint handlers                                    │
 │  • Provides OpenAPI documentation                                          │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -48,9 +48,8 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  Dependency Injection (deps.py)                                            │
 │  ──────────────────────────────                                            │
-│  • Module-level Jira client singleton                                      │
-│  • Circuit breaker protection                                              │
-│  • Health status tracking                                                  │
+│  • Fresh Jira client per request (no stale connections)                    │
+│  • Health check on startup                                                 │
 │  • FastAPI Depends() integration                                           │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -166,31 +165,21 @@ Each module handles a specific domain:
 
 ### 4. Dependency Injection (deps.py)
 
-Module-level singleton with circuit breaker:
+Fresh client per request - simple and reliable:
 
 ```python
-_client = None
-_healthy = False
-_circuit_state = "closed"
-_failure_count = 0
-
 def jira():
-    """FastAPI dependency - get Jira client with circuit breaker."""
-    if _circuit_state == "open":
-        raise HTTPException(503, "Circuit breaker open - Jira unavailable")
+    """FastAPI dependency - get fresh Jira client per request."""
     try:
-        return get_client()
+        return get_jira_client()
     except Exception as e:
-        _record_failure()
         raise HTTPException(503, f"Jira not connected: {e}")
 ```
 
-**Circuit breaker states:**
-```
-closed ──[5 failures]──▶ open ──[30s timeout]──▶ half_open
-   ▲                                                  │
-   └──────────[success]───────────────────────────────┘
-```
+**Why fresh per request?**
+- Avoids stale TCP connections after long idle periods
+- No complex reconnection/circuit breaker logic needed
+- ~100ms overhead is negligible for CLI usage
 
 ### 5. Formatter System (formatters/)
 
@@ -388,12 +377,11 @@ ROUTES_REQUIRING_KEY = {
 - Credentials stored in `~/.env.jira` (chmod 600 recommended)
 - Server binds to localhost only (`127.0.0.1:9200`)
 - No secrets in logs or error messages
-- Circuit breaker prevents credential stuffing via repeated failures
 
 ## Performance
 
-1. **Persistent server**: Connection reuse, no startup overhead per request
-2. **Circuit breaker**: Prevents hammering failed API
+1. **Persistent server**: FastAPI stays running, only HTTP routing overhead per request
+2. **Fresh client per request**: Avoids stale connection issues (~100ms overhead, negligible for CLI)
 3. **AI format**: Token-efficient output reduces LLM context usage
 4. **JQL preprocessing**: Workarounds for library bugs handled once
 
