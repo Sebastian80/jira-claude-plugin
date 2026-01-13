@@ -17,7 +17,7 @@ except ImportError:
 logger = logging.getLogger("jira.response")
 
 # Valid format values
-VALID_FORMATS = {"json", "human", "rich", "ai", "markdown"}
+VALID_FORMATS = {"json", "rich", "ai", "markdown"}
 
 # Default formatters for error messages
 _DEFAULT_FORMATTERS = {
@@ -49,10 +49,6 @@ def formatted(data: Any, fmt: str, data_type: str | None = None):
 
     if fmt == "json":
         return JSONResponse(content={"success": True, "data": data})
-
-    # Normalize format name (human -> rich for compatibility)
-    if fmt == "human":
-        fmt = "rich"
 
     formatter = formatter_registry.get(fmt, plugin="jira", data_type=data_type)
     if formatter is None:

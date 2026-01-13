@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/versions/{project}")
 async def list_versions(
     project: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List versions in a project."""
@@ -59,7 +59,7 @@ async def create_version(
 @router.get("/version/{version_id}")
 async def get_version(
     version_id: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get version details."""

@@ -1,14 +1,6 @@
 ---
 name: jira
-description: >
-  MANDATORY when any ticket key appears (PROJ-123, HMKG-2064, etc.) - fetch it immediately.
-  Use for: (1) Any ticket/issue key mentioned anywhere - in conversation, files, git branches, errors,
-  (2) "look up", "get", "read", "check", "what's the status of" + ticket reference,
-  (3) Searching issues (JQL, "find tickets", "open bugs"),
-  (4) Creating, updating, or transitioning tickets,
-  (5) Adding comments or logging work time,
-  (6) Any mention of "Jira", "ticket", "issue".
-  Supports Jira Cloud and Server/Data Center.
+description: Use when any ticket key appears (PROJ-123, HMKG-2064) anywhere - conversation, files, git branches, errors. Also for "look up ticket", "find issues", JQL queries, or any Jira/ticket/issue mention.
 ---
 
 # Jira CLI
@@ -36,6 +28,7 @@ jira search --jql 'assignee = currentUser()' # Use single quotes for JQL
 # Workflow
 jira transitions PROJ-123                    # List available transitions
 jira transition PROJ-123 --target "In Progress"
+jira transition PROJ-123 --target "Done" --dryRun  # Preview without executing
 
 # Comments & Time
 jira comment PROJ-123 --text "Done"          # Add comment

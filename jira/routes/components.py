@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/components/{project}")
 async def list_components(
     project: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List components in a project."""
@@ -63,7 +63,7 @@ async def create_component(
 @router.get("/component/{component_id}")
 async def get_component(
     component_id: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get component details."""

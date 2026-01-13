@@ -51,7 +51,7 @@ async def search(
     max_results: int = Query(50, alias="maxResults", ge=1, le=100, description="Maximum results (1-100)"),
     start_at: int = Query(0, alias="startAt", ge=0, description="Index of first result (for pagination)"),
     fields: str = Query("key,summary,status,assignee,priority,issuetype", description="Comma-separated fields"),
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Search issues using JQL query."""

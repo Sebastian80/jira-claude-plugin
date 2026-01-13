@@ -18,7 +18,7 @@ router = APIRouter()
 
 @router.get("/user")
 async def get_user(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get current authenticated user."""
@@ -31,7 +31,7 @@ async def get_user(
 
 @router.get("/user/me")
 async def get_current_user(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get current authenticated user (alias for /user)."""

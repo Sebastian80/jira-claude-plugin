@@ -47,7 +47,7 @@ def normalize_status_name(name: str) -> list[str]:
 
 @router.get("/statuses")
 async def list_statuses(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all statuses."""
@@ -58,10 +58,10 @@ async def list_statuses(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/status/{name}")
+@router.get("/status/{name:path}")
 async def get_status(
     name: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get status by name (accepts English or localized names)."""

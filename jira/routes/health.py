@@ -8,7 +8,7 @@ Endpoints:
 
 Examples:
     jira health           # Quick connection check
-    jira health --format human
+    jira health --format rich
 """
 
 from fastapi import APIRouter, Depends, Query
@@ -21,7 +21,7 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Check Jira connection health."""

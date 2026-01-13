@@ -22,7 +22,7 @@ async def get_issue(
     key: str,
     fields: str | None = Query(None, description="Comma-separated fields to return"),
     expand: str | None = Query(None, description="Fields to expand (e.g., 'changelog')"),
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get issue details by key."""

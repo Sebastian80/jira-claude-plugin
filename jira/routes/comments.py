@@ -32,7 +32,7 @@ async def add_comment(
 async def list_comments(
     key: str,
     limit: int = Query(10, ge=1, le=100, description="Maximum comments to return"),
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List comments on issue."""

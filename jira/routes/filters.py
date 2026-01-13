@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/filters")
 async def list_filters(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List your favorite filters."""
@@ -36,7 +36,7 @@ async def list_filters(
 @router.get("/filter/{filter_id}")
 async def get_filter(
     filter_id: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get filter details."""

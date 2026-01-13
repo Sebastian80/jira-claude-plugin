@@ -20,7 +20,7 @@ router = APIRouter()
 async def list_projects(
     include_archived: bool = Query(False, alias="includeArchived", description="Include archived projects"),
     expand: str | None = Query(None, description="Fields to expand"),
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all Jira projects."""
@@ -40,7 +40,7 @@ async def list_projects(
 @router.get("/project/{key}")
 async def get_project(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get project details by key."""
@@ -56,7 +56,7 @@ async def get_project(
 @router.get("/project/{key}/components")
 async def get_project_components(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get project components."""
@@ -72,7 +72,7 @@ async def get_project_components(
 @router.get("/project/{key}/versions")
 async def get_project_versions(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get project versions."""

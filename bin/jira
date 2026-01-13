@@ -211,10 +211,12 @@ route_request() {
         method=$(get_method_for_endpoint "$endpoint")
     fi
 
-    # Build URL path
+    # Build URL path (URL-encode path parameters)
     local url="$BASE_URL/jira/$endpoint"
     for arg in "${path_args[@]}"; do
-        url="$url/$arg"
+        local encoded_arg
+        encoded_arg=$(urlencode "$arg")
+        url="$url/$encoded_arg"
     done
 
     # Build query string manually for proper encoding
@@ -289,12 +291,19 @@ case "${1:-help}" in
         ;;
 
     status)
-        if is_running; then
-            echo "Server running (PID $(cat "$PID_FILE")) on $BASE_URL"
-            curl -s "$BASE_URL/health" | python3 -m json.tool 2>/dev/null || true
+        # If no additional args, show server status
+        # If args provided, route to /jira/status/{name} endpoint
+        if [[ $# -eq 1 ]]; then
+            if is_running; then
+                echo "Server running (PID $(cat "$PID_FILE")) on $BASE_URL"
+                curl -s "$BASE_URL/health" | python3 -m json.tool 2>/dev/null || true
+            else
+                echo "Server not running"
+                exit 1
+            fi
         else
-            echo "Server not running"
-            exit 1
+            ensure_server
+            route_request "$@"
         fi
         ;;
 

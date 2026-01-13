@@ -22,7 +22,7 @@ router = APIRouter()
 @router.get("/links/{key}")
 async def get_issue_links(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all links on an issue."""
@@ -39,7 +39,7 @@ async def get_issue_links(
 
 @router.get("/linktypes")
 async def list_link_types_alias(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List available issue link types."""
@@ -103,7 +103,7 @@ async def add_weblink(
 @router.get("/weblinks/{key}")
 async def list_weblinks(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List web links on issue."""

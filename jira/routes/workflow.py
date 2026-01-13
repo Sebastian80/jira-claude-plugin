@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/transitions/{key}")
 async def list_transitions(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List available transitions for an issue."""
@@ -39,7 +39,7 @@ async def do_transition(
 ):
     """Transition issue to target state (smart multi-step)."""
     try:
-        from lib.workflow import smart_transition
+        from ..lib.workflow import smart_transition
 
         executed = smart_transition(
             client=client,

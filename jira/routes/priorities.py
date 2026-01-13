@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/priorities")
 async def list_priorities(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all priority levels."""

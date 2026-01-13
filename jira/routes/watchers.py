@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("/watchers/{key}")
 async def list_watchers(
     key: str,
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List watchers on issue."""

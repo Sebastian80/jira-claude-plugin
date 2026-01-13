@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/fields")
 async def list_fields(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all fields."""
@@ -29,7 +29,7 @@ async def list_fields(
 
 @router.get("/fields/custom")
 async def list_custom_fields(
-    format: str = Query("json", description="Output format: json, human, ai, markdown"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List only custom fields."""
