@@ -15,6 +15,21 @@ TICKET KEY MENTIONED = FETCH IT. NO EXCEPTIONS.
 
 If a ticket key (PROJ-123, HMKG-2064) appears anywhere - user message, file, git branch, error - **fetch it with `jira issue KEY`**. Fetching takes 2 seconds. Guessing wastes time.
 
+## Context Management
+
+**Simple lookups** (single ticket, quick status check): Handle directly with commands below.
+
+**Complex workflows** - spawn `jira-agent` to isolate context:
+- Multi-ticket analysis
+- Sprint/backlog reviews
+- Bulk transitions or updates
+- Reporting across many tickets
+- Deep workflow analysis
+
+```
+Use Task tool: subagent_type="jira-agent"
+```
+
 ## Quick Reference
 
 ```bash
