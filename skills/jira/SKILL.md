@@ -94,6 +94,35 @@ jira health     # Check Jira connection
 - `h2. Heading` not `## Heading`
 - `{code:python}...{code}` not triple backticks
 
+## Writing Content for Jira
+
+Before creating issues or comments with complex formatting:
+
+1. **Use jira-syntax skill** for wiki markup reference
+2. **Use templates**: Bug reports, feature requests with proper Jira formatting
+3. **Validate syntax** before submitting
+
+**Example workflow:**
+```bash
+# Format description with Jira wiki markup, then create issue
+jira create --project PROJ --type Bug --summary "Login fails" \
+  --description "h2. Steps to Reproduce
+* Step 1
+* Step 2
+
+h2. Expected
+Login succeeds
+
+h2. Actual
+{color:red}Error 500{color}"
+```
+
+**Common syntax reminders:**
+- Headings: `h2. Title` (NOT `## Title`)
+- Bold: `*text*` (NOT `**text**`)
+- Code: `{code:python}...{code}` (NOT triple backticks)
+- Links: `[text|url]` (NOT `[text](url)`)
+
 ## References
 
 - [commands.md](references/commands.md) - Full command reference
