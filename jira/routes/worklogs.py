@@ -41,12 +41,24 @@ async def add_worklog(
     client=Depends(jira),
 ):
     """Add worklog to issue."""
-    try:
-        kwargs = {"comment": comment} if comment else {}
-        if started:
-            kwargs["started"] = started
+    from datetime import datetime
 
-        result = client.issue_add_worklog(key, time_spent, **kwargs)
+    # Validate timeSpent is not empty
+    if not time_spent or not time_spent.strip():
+        raise HTTPException(status_code=400, detail="timeSpent cannot be empty. Use format like '2h', '1d 4h', '30m'")
+
+    try:
+        # Build worklog payload for REST API
+        worklog = {"timeSpent": time_spent}
+        if comment:
+            worklog["comment"] = comment
+        if started:
+            worklog["started"] = started
+        else:
+            # Default to now in Jira's expected format
+            worklog["started"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0000")
+
+        result = client.issue_add_json_worklog(key, worklog)
         return success(result)
     except Exception as e:
         error_msg = str(e)

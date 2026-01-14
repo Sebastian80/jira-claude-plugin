@@ -44,8 +44,14 @@ def formatted(data: Any, fmt: str, data_type: str | None = None):
     """Return response in requested format."""
     # Validate format parameter
     if fmt not in VALID_FORMATS:
-        logger.warning(f"Invalid format '{fmt}', falling back to json. Valid: {', '.join(sorted(VALID_FORMATS))}")
-        fmt = "json"
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": f"Invalid format '{fmt}'",
+                "hint": f"Valid formats: {', '.join(sorted(VALID_FORMATS))}"
+            }
+        )
 
     if fmt == "json":
         return JSONResponse(content={"success": True, "data": data})

@@ -166,11 +166,25 @@ ensure_server() {
     fi
 }
 
+# Endpoint aliases - map CLI command to actual API endpoint
+# Allows: jira update PROJ-123 --summary "..." -> PATCH /jira/issue/PROJ-123
+get_endpoint_alias() {
+    local endpoint="$1"
+    case "$endpoint" in
+        update) echo "issue" ;;
+        *) echo "$endpoint" ;;
+    esac
+}
+
 # Convert CLI args to HTTP request
 # jira issue HMKG-123 --format ai -> GET /jira/issue/HMKG-123?format=ai
 route_request() {
     local endpoint="$1"
     shift
+
+    # Resolve endpoint alias (e.g., update -> issue)
+    local actual_endpoint
+    actual_endpoint=$(get_endpoint_alias "$endpoint")
 
     local path_args=()
     local query_params=()
@@ -184,7 +198,8 @@ route_request() {
                 local key="${1#--}"
                 if [[ "$key" == *"="* ]]; then
                     query_params+=("$key")
-                elif [[ -n "$2" && ! "$2" == --* ]]; then
+                elif [[ $# -ge 2 && ! "$2" == --* ]]; then
+                    # Value exists (even if empty) and isn't another flag
                     query_params+=("$key=$2")
                     shift
                 else
@@ -212,7 +227,8 @@ route_request() {
     fi
 
     # Build URL path (URL-encode path parameters)
-    local url="$BASE_URL/jira/$endpoint"
+    # Use actual_endpoint for URL, but original endpoint for method detection
+    local url="$BASE_URL/jira/$actual_endpoint"
     for arg in "${path_args[@]}"; do
         local encoded_arg
         encoded_arg=$(urlencode "$arg")

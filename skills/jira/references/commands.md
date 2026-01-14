@@ -11,9 +11,8 @@ jira issue PROJ-123 --fields summary,status   # Specific fields only
 jira issue PROJ-123 --expand changelog        # Include change history
 jira issue PROJ-123 --include-links           # Include linked issues
 
-# Bulk fetch (parallel)
-jira issues PROJ-1,PROJ-2,PROJ-3              # Comma-separated
-jira issues "PROJ-1 PROJ-2 PROJ-3"            # Space-separated
+# Bulk fetch - use search instead
+jira search --jql 'key in (PROJ-1, PROJ-2, PROJ-3)'
 
 # Create issue
 jira create --project PROJ --type Task --summary "New task"
@@ -24,8 +23,9 @@ jira create --project PROJ --type Task --summary "Task" \
   --components "Backend,API" --fixVersions "v2.0"
 
 # Update issue
-jira issue PROJ-123 --summary "Updated title"
-jira issue PROJ-123 --assignee jane --priority Low
+jira update PROJ-123 --summary "Updated title"
+jira update PROJ-123 --assignee jane --priority Low
+jira update PROJ-123 --description "New description"
 ```
 
 ## Search
@@ -50,7 +50,7 @@ jira transition PROJ-123 --transition "Done"
 
 ```bash
 jira comments PROJ-123                        # List comments
-jira comment PROJ-123 --body "Work completed" # Add comment
+jira comment PROJ-123 --text "Work completed"  # Add comment
 ```
 
 ## Time Tracking

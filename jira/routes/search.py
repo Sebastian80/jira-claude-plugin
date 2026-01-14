@@ -55,6 +55,10 @@ async def search(
     client=Depends(jira),
 ):
     """Search issues using JQL query."""
+    # Validate JQL is not empty
+    if not jql or not jql.strip():
+        return formatted_error("JQL query cannot be empty", hint="Example: 'project = PROJ AND status = Open'", fmt=format)
+
     field_list = [f.strip() for f in fields.split(",")]
 
     # Pre-process JQL to fix != and !~ operators
