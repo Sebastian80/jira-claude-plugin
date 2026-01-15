@@ -22,6 +22,7 @@ Route modules:
 - statuses: Status values
 - fields: Field metadata
 - filters: Saved JQL filters
+- agile: Sprint and board operations
 - help: Self-describing API documentation
 """
 
@@ -45,6 +46,7 @@ from .priorities import router as priorities_router
 from .statuses import router as statuses_router
 from .fields import router as fields_router
 from .filters import router as filters_router
+from .agile import router as agile_router
 
 
 def create_router() -> APIRouter:
@@ -80,5 +82,8 @@ def create_router() -> APIRouter:
     router.include_router(statuses_router)      # /statuses, /status
     router.include_router(fields_router)        # /fields
     router.include_router(filters_router)       # /filters, /filter
+
+    # Agile/Sprint operations
+    router.include_router(agile_router)         # /boards, /sprints, /sprint
 
     return router

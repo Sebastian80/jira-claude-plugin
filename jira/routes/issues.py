@@ -9,6 +9,8 @@ Endpoints:
 - PATCH /issue/{key} - Update specific fields on existing issue
 """
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..deps import jira
@@ -51,6 +53,7 @@ async def create_issue(
     labels: str | None = Query(None, description="Comma-separated labels"),
     assignee: str | None = Query(None, description="Username or email of assignee"),
     parent: str | None = Query(None, description="Parent issue key (for subtasks)"),
+    custom: str | None = Query(None, description="Custom fields as JSON: '{\"customfield_10480\": 123}'"),
     client=Depends(jira),
 ):
     """Create new issue in Jira."""
@@ -72,6 +75,12 @@ async def create_issue(
             issue_fields["assignee"] = {"name": assignee}
     if parent:
         issue_fields["parent"] = {"key": parent}
+    if custom:
+        try:
+            custom_fields = json.loads(custom)
+            issue_fields.update(custom_fields)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
 
     try:
         result = client.create_issue(fields=issue_fields)
@@ -129,9 +138,11 @@ async def delete_issue(
 async def update_issue(
     key: str,
     summary: str | None = Query(None, description="New issue summary/title"),
+    description: str | None = Query(None, description="New issue description"),
     priority: str | None = Query(None, description="Priority: Highest, High, Medium, Low, Lowest"),
     labels: str | None = Query(None, description="Comma-separated labels (replaces existing)"),
     assignee: str | None = Query(None, description="Username or email of assignee"),
+    custom: str | None = Query(None, description="Custom fields as JSON: '{\"customfield_10480\": 123}'"),
     client=Depends(jira),
 ):
     """Update issue fields."""
@@ -139,6 +150,8 @@ async def update_issue(
 
     if summary:
         update_fields["summary"] = summary
+    if description:
+        update_fields["description"] = description
     if priority:
         update_fields["priority"] = {"name": priority}
     if labels:
@@ -148,6 +161,12 @@ async def update_issue(
             update_fields["assignee"] = {"emailAddress": assignee}
         else:
             update_fields["assignee"] = {"name": assignee}
+    if custom:
+        try:
+            custom_fields = json.loads(custom)
+            update_fields.update(custom_fields)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
 
     if not update_fields:
         return error("No fields specified to update")

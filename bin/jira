@@ -48,6 +48,9 @@ get_method_for_endpoint() {
         # POST endpoints (create/add operations)
         create|comment|transition|worklog|attachment|watcher|weblink|link)
             echo "POST" ;;
+        # Sprint issue operations need special handling
+        sprint/*/issues)
+            echo "POST" ;;
         # PATCH endpoints (update operations)
         update)
             echo "PATCH" ;;
