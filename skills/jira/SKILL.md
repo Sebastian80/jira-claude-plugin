@@ -1,6 +1,6 @@
 ---
 name: jira
-description: Use when any ticket key appears (PROJ-123, HMKG-2064) anywhere - conversation, files, git branches, errors. Also for "look up ticket", "find issues", JQL queries, or any Jira/ticket/issue mention.
+description: Use when any ticket key appears (format PROJECTKEY-NUMBER, e.g., OROSPD-589, HMKG-2064, XX-12) anywhere - conversation, files, git branches, errors. Also for "look up ticket", "find issues", JQL queries, or any Jira/ticket/issue mention.
 ---
 
 # Jira CLI
@@ -13,7 +13,7 @@ Standalone `jira` CLI for all Jira operations. Self-contained FastAPI server.
 TICKET KEY MENTIONED = FETCH IT. NO EXCEPTIONS.
 ```
 
-If a ticket key (PROJ-123, HMKG-2064) appears anywhere - user message, file, git branch, error - **fetch it with `jira issue KEY`**. Fetching takes 2 seconds. Guessing wastes time.
+If a ticket key (format PROJECTKEY-NUMBER, e.g., OROSPD-589, HMKG-2064, XX-12) appears anywhere - user message, file, git branch, error - **fetch it with `jira issue KEY`**. Fetching takes 2 seconds. Guessing wastes time.
 
 ## Context Management
 
