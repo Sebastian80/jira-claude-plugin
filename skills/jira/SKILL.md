@@ -40,6 +40,7 @@ jira transition PROJ-123 --target "Done" --dryRun  # Preview without executing
 
 # Comments & Time
 jira comment PROJ-123 --text "Done"          # Add comment
+jira comment PROJ-123 12345 -X DELETE        # Delete comment by ID
 jira worklog PROJ-123 --timeSpent 2h         # Log time
 
 # Help

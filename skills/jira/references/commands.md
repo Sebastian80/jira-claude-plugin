@@ -51,6 +51,7 @@ jira transition PROJ-123 --target "Done"
 ```bash
 jira comments PROJ-123                        # List comments
 jira comment PROJ-123 --text "Work completed"  # Add comment
+jira comment PROJ-123 12345 -X DELETE          # Delete comment by ID
 ```
 
 ## Time Tracking
@@ -68,7 +69,7 @@ jira worklog PROJ-123 12345                   # Get specific worklog
 # Issue links
 jira links PROJ-123                           # List issue links
 jira linktypes                                # Available link types
-jira link --inward PROJ-1 --outward PROJ-2 --type Blocks
+jira link --from PROJ-1 --to PROJ-2 --type Blocks
 
 # Web links
 jira weblinks PROJ-123                        # List web/remote links
