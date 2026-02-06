@@ -8,6 +8,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
@@ -16,15 +17,15 @@ from ..response import success, error, formatted, get_status_code, is_status
 router = APIRouter()
 
 
+class AddCommentBody(BaseModel):
+    text: str
+
+
 @router.post("/comment/{key}")
-async def add_comment(
-    key: str,
-    text: str = Query(..., description="Comment text (use Jira wiki markup, not Markdown)"),
-    client=Depends(jira),
-):
+async def add_comment(key: str, body: AddCommentBody, client=Depends(jira)):
     """Add comment to issue."""
     try:
-        result = client.issue_add_comment(key, text)
+        result = client.issue_add_comment(key, body.text)
         return success(result)
     except HTTPError as e:
         if is_status(e, 404):

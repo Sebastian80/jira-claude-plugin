@@ -12,12 +12,41 @@ Endpoints:
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, model_validator
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
+
+
+class CreateIssueBody(BaseModel):
+    project: str
+    summary: str
+    type: str
+    description: str | None = None
+    priority: str | None = None
+    labels: str | None = None
+    assignee: str | None = None
+    parent: str | None = None
+    custom: str | None = None
+
+
+class UpdateIssueBody(BaseModel):
+    summary: str | None = None
+    description: str | None = None
+    priority: str | None = None
+    labels: str | None = None
+    assignee: str | None = None
+    custom: str | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self):
+        if not any([self.summary, self.description, self.priority,
+                     self.labels, self.assignee, self.custom]):
+            raise ValueError("At least one field must be provided")
+        return self
 
 
 @router.get("/issue/{key}")
@@ -47,40 +76,29 @@ async def get_issue(
 
 
 @router.post("/create")
-async def create_issue(
-    project: str = Query(..., description="Project key"),
-    summary: str = Query(..., description="Issue title/summary"),
-    issue_type: str = Query(..., alias="type", description="Issue type: Story, Bug, Task, etc."),
-    description: str | None = Query(None, description="Issue description"),
-    priority: str | None = Query(None, description="Priority: Highest, High, Medium, Low, Lowest"),
-    labels: str | None = Query(None, description="Comma-separated labels"),
-    assignee: str | None = Query(None, description="Username or email of assignee"),
-    parent: str | None = Query(None, description="Parent issue key (for subtasks)"),
-    custom: str | None = Query(None, description="Custom fields as JSON: '{\"customfield_10480\": 123}'"),
-    client=Depends(jira),
-):
+async def create_issue(body: CreateIssueBody, client=Depends(jira)):
     """Create new issue in Jira."""
     issue_fields = {
-        "project": {"key": project},
-        "summary": summary,
-        "issuetype": {"name": issue_type},
+        "project": {"key": body.project},
+        "summary": body.summary,
+        "issuetype": {"name": body.type},
     }
-    if description:
-        issue_fields["description"] = description
-    if priority:
-        issue_fields["priority"] = {"name": priority}
-    if labels:
-        issue_fields["labels"] = [label.strip() for label in labels.split(",")]
-    if assignee:
-        if "@" in assignee:
-            issue_fields["assignee"] = {"emailAddress": assignee}
+    if body.description:
+        issue_fields["description"] = body.description
+    if body.priority:
+        issue_fields["priority"] = {"name": body.priority}
+    if body.labels:
+        issue_fields["labels"] = [label.strip() for label in body.labels.split(",")]
+    if body.assignee:
+        if "@" in body.assignee:
+            issue_fields["assignee"] = {"emailAddress": body.assignee}
         else:
-            issue_fields["assignee"] = {"name": assignee}
-    if parent:
-        issue_fields["parent"] = {"key": parent}
-    if custom:
+            issue_fields["assignee"] = {"name": body.assignee}
+    if body.parent:
+        issue_fields["parent"] = {"key": body.parent}
+    if body.custom:
         try:
-            custom_fields = json.loads(custom)
+            custom_fields = json.loads(body.custom)
             issue_fields.update(custom_fields)
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
@@ -142,41 +160,29 @@ async def delete_issue(
 
 
 @router.patch("/issue/{key}")
-async def update_issue(
-    key: str,
-    summary: str | None = Query(None, description="New issue summary/title"),
-    description: str | None = Query(None, description="New issue description"),
-    priority: str | None = Query(None, description="Priority: Highest, High, Medium, Low, Lowest"),
-    labels: str | None = Query(None, description="Comma-separated labels (replaces existing)"),
-    assignee: str | None = Query(None, description="Username or email of assignee"),
-    custom: str | None = Query(None, description="Custom fields as JSON: '{\"customfield_10480\": 123}'"),
-    client=Depends(jira),
-):
+async def update_issue(key: str, body: UpdateIssueBody, client=Depends(jira)):
     """Update issue fields."""
     update_fields = {}
 
-    if summary:
-        update_fields["summary"] = summary
-    if description:
-        update_fields["description"] = description
-    if priority:
-        update_fields["priority"] = {"name": priority}
-    if labels:
-        update_fields["labels"] = [label.strip() for label in labels.split(",")]
-    if assignee:
-        if "@" in assignee:
-            update_fields["assignee"] = {"emailAddress": assignee}
+    if body.summary:
+        update_fields["summary"] = body.summary
+    if body.description:
+        update_fields["description"] = body.description
+    if body.priority:
+        update_fields["priority"] = {"name": body.priority}
+    if body.labels:
+        update_fields["labels"] = [label.strip() for label in body.labels.split(",")]
+    if body.assignee:
+        if "@" in body.assignee:
+            update_fields["assignee"] = {"emailAddress": body.assignee}
         else:
-            update_fields["assignee"] = {"name": assignee}
-    if custom:
+            update_fields["assignee"] = {"name": body.assignee}
+    if body.custom:
         try:
-            custom_fields = json.loads(custom)
+            custom_fields = json.loads(body.custom)
             update_fields.update(custom_fields)
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
-
-    if not update_fields:
-        return error("No fields specified to update")
 
     try:
         client.update_issue_field(key, update_fields)

@@ -8,12 +8,19 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, formatted, get_status_code, is_status
 
 router = APIRouter()
+
+
+class AddWorklogBody(BaseModel):
+    timeSpent: str
+    comment: str | None = None
+    started: str | None = None
 
 
 @router.get("/worklogs/{key}")
@@ -36,27 +43,21 @@ async def list_worklogs(
 
 
 @router.post("/worklog/{key}")
-async def add_worklog(
-    key: str,
-    time_spent: str = Query(..., alias="timeSpent", description="Time spent (e.g., '1h 30m', '2d', '30m')"),
-    comment: str | None = Query(None, description="Work description"),
-    started: str | None = Query(None, description="Start time (ISO 8601 format)"),
-    client=Depends(jira),
-):
+async def add_worklog(key: str, body: AddWorklogBody, client=Depends(jira)):
     """Add worklog to issue."""
     from datetime import datetime
 
     # Validate timeSpent is not empty
-    if not time_spent or not time_spent.strip():
+    if not body.timeSpent or not body.timeSpent.strip():
         raise HTTPException(status_code=400, detail="timeSpent cannot be empty. Use format like '2h', '1d 4h', '30m'")
 
     try:
         # Build worklog payload for REST API
-        worklog = {"timeSpent": time_spent}
-        if comment:
-            worklog["comment"] = comment
-        if started:
-            worklog["started"] = started
+        worklog = {"timeSpent": body.timeSpent}
+        if body.comment:
+            worklog["comment"] = body.comment
+        if body.started:
+            worklog["started"] = body.started
         else:
             # Default to now in Jira's expected format
             worklog["started"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0000")

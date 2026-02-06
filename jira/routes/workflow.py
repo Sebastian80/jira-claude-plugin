@@ -7,11 +7,20 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted
+from ..response import success, error, formatted, get_status_code, is_status
 
 router = APIRouter()
+
+
+class TransitionBody(BaseModel):
+    target: str
+    comment: bool = False
+    dryRun: bool = False
+    maxSteps: int = 5
 
 
 @router.get("/transitions/{key}")
@@ -29,14 +38,7 @@ async def list_transitions(
 
 
 @router.post("/transition/{key}")
-async def do_transition(
-    key: str,
-    target: str = Query(..., description="Target state name (e.g., 'In Progress', 'Done')"),
-    comment: bool = Query(False, description="Add transition trail as comment"),
-    dry_run: bool = Query(False, alias="dryRun", description="Show path without executing"),
-    max_steps: int = Query(5, alias="maxSteps", ge=1, le=10, description="Max intermediate transitions (1-10)"),
-    client=Depends(jira),
-):
+async def do_transition(key: str, body: TransitionBody, client=Depends(jira)):
     """Transition issue to target state (smart multi-step)."""
     try:
         from ..lib.workflow import smart_transition
@@ -44,10 +46,10 @@ async def do_transition(
         executed = smart_transition(
             client=client,
             issue_key=key,
-            target_state=target,
-            add_comment=comment,
-            dry_run=dry_run,
-            max_steps=max_steps,
+            target_state=body.target,
+            add_comment=body.comment,
+            dry_run=body.dryRun,
+            max_steps=body.maxSteps,
         )
 
         issue = client.issue(key, fields="status")
@@ -55,7 +57,7 @@ async def do_transition(
 
         return success({
             "key": key,
-            "dry_run": dry_run,
+            "dry_run": body.dryRun,
             "transitions": [{"id": t.id, "name": t.name, "to": t.to} for t in executed],
             "steps": len(executed),
             "final_state": final_state,

@@ -10,12 +10,18 @@ Endpoints:
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
+
+
+class UploadAttachmentBody(BaseModel):
+    filename: str
+    content: str
 
 
 @router.get("/attachments/{key}")
@@ -38,20 +44,15 @@ async def list_attachments(
 
 
 @router.post("/attachment/{key}")
-async def upload_attachment(
-    key: str,
-    filename: str = Query(..., description="Name of the file to attach"),
-    content: str = Query(..., description="Base64-encoded file content"),
-    client=Depends(jira),
-):
+async def upload_attachment(key: str, body: UploadAttachmentBody, client=Depends(jira)):
     """Upload attachment to issue."""
     try:
         try:
-            file_data = base64.b64decode(content)
+            file_data = base64.b64decode(body.content)
         except Exception:
             return error("Failed to decode base64 content")
 
-        result = client.add_attachment(issue_key=key, filename=filename, attachment=file_data)
+        result = client.add_attachment(issue_key=key, filename=body.filename, attachment=file_data)
         return success(result)
     except HTTPError as e:
         if is_status(e, 404):

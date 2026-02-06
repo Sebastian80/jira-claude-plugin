@@ -12,12 +12,26 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, formatted, get_status_code, is_status
 
 router = APIRouter()
+
+
+class CreateLinkBody(BaseModel):
+    from_key: str = Field(alias="from")
+    to: str
+    type: str
+
+    model_config = {"populate_by_name": True}
+
+
+class AddWeblinkBody(BaseModel):
+    url: str
+    title: str | None = None
 
 
 @router.get("/links/{key}")
@@ -53,21 +67,16 @@ async def list_link_types_alias(
 
 
 @router.post("/link")
-async def create_link(
-    from_key: str = Query(..., alias="from", description="Source issue key"),
-    to_key: str = Query(..., alias="to", description="Target issue key"),
-    link_type: str = Query(..., alias="type", description="Link type name"),
-    client=Depends(jira),
-):
+async def create_link(body: CreateLinkBody, client=Depends(jira)):
     """Create link between two issues."""
     try:
         link_data = {
-            "type": {"name": link_type},
-            "inwardIssue": {"key": to_key},
-            "outwardIssue": {"key": from_key},
+            "type": {"name": body.type},
+            "inwardIssue": {"key": body.to},
+            "outwardIssue": {"key": body.from_key},
         }
         client.create_issue_link(link_data)
-        return success({"from": from_key, "to": to_key, "type": link_type})
+        return success({"from": body.from_key, "to": body.to, "type": body.type})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -83,21 +92,16 @@ async def list_link_types(client=Depends(jira)):
 
 
 @router.post("/weblink/{key}")
-async def add_weblink(
-    key: str,
-    url: str = Query(..., description="URL to link"),
-    title: str | None = Query(None, description="Link title (defaults to URL)"),
-    client=Depends(jira),
-):
+async def add_weblink(key: str, body: AddWeblinkBody, client=Depends(jira)):
     """Add web link to issue."""
-    link_title = title or url
+    link_title = body.title or body.url
     try:
-        link_object = {"url": url, "title": link_title}
+        link_object = {"url": body.url, "title": link_title}
         endpoint = f"rest/api/2/issue/{key}/remotelink"
         response = client._session.post(f"{client.url}/{endpoint}", json={"object": link_object})
         response.raise_for_status()
         result = response.json()
-        return success({"key": key, "url": url, "title": link_title, "id": result.get("id")})
+        return success({"key": key, "url": body.url, "title": link_title, "id": result.get("id")})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

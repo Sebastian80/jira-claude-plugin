@@ -9,12 +9,20 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, error, formatted, get_status_code, is_status
 
 router = APIRouter()
+
+
+class CreateComponentBody(BaseModel):
+    project: str
+    name: str
+    description: str | None = None
+    lead: str | None = None
 
 
 @router.get("/components/{project}")
@@ -36,28 +44,22 @@ async def list_components(
 
 
 @router.post("/component")
-async def create_component(
-    project: str = Query(..., description="Project key"),
-    name: str = Query(..., description="Component name"),
-    description: str = Query(None, description="Component description"),
-    lead: str = Query(None, description="Component lead username"),
-    client=Depends(jira),
-):
+async def create_component(body: CreateComponentBody, client=Depends(jira)):
     """Create a component."""
     try:
-        component = {"name": name, "project": project}
-        if description:
-            component["description"] = description
-        if lead:
-            component["leadUserName"] = lead
+        component = {"name": body.name, "project": body.project}
+        if body.description:
+            component["description"] = body.description
+        if body.lead:
+            component["leadUserName"] = body.lead
 
         result = client.create_component(component)
         return success(result)
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Project '{project}' not found")
+            return error(f"Project '{body.project}' not found")
         if is_status(e, 409):
-            return error(f"Component '{name}' already exists in {project}")
+            return error(f"Component '{body.name}' already exists in {body.project}")
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

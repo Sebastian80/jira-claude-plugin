@@ -8,12 +8,17 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
+
+
+class AddWatcherBody(BaseModel):
+    username: str
 
 
 @router.get("/watchers/{key}")
@@ -35,15 +40,11 @@ async def list_watchers(
 
 
 @router.post("/watcher/{key}")
-async def add_watcher(
-    key: str,
-    username: str = Query(..., description="Username of user to add as watcher"),
-    client=Depends(jira),
-):
+async def add_watcher(key: str, body: AddWatcherBody, client=Depends(jira)):
     """Add watcher to issue."""
     try:
-        client.issue_add_watcher(key, username)
-        return success({"issue_key": key, "username": username, "added": True})
+        client.issue_add_watcher(key, body.username)
+        return success({"issue_key": key, "username": body.username, "added": True})
     except HTTPError as e:
         if is_status(e, 404):
             return error(f"Issue {key} not found")

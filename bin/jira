@@ -238,28 +238,68 @@ route_request() {
         url="$url/$encoded_arg"
     done
 
-    # Build query string manually for proper encoding
+    # For POST/PATCH: split params into query (format only) and JSON body (rest)
+    # For GET/DELETE: all params stay as query string
+    local curl_args=(-s -w "\n%{http_code}")
     local query_string=""
-    if [[ ${#query_params[@]} -gt 0 ]]; then
+
+    if [[ "$method" == "POST" || "$method" == "PATCH" ]] && [[ ${#query_params[@]} -gt 0 ]]; then
+        local body_params=()
         for param in "${query_params[@]}"; do
             local key="${param%%=*}"
             local value="${param#*=}"
-            local encoded_value
-            encoded_value=$(urlencode "$value")
-            if [[ -n "$query_string" ]]; then
-                query_string="${query_string}&${key}=${encoded_value}"
+            if [[ "$key" == "format" ]]; then
+                local encoded_value
+                encoded_value=$(urlencode "$value")
+                if [[ -n "$query_string" ]]; then
+                    query_string="${query_string}&${key}=${encoded_value}"
+                else
+                    query_string="${key}=${encoded_value}"
+                fi
             else
-                query_string="${key}=${encoded_value}"
+                body_params+=("$key" "$value")
             fi
         done
-        url="${url}?${query_string}"
-    fi
 
-    # Build curl command
-    local curl_args=(-s -w "\n%{http_code}")
+        if [[ -n "$query_string" ]]; then
+            url="${url}?${query_string}"
+        fi
 
-    if [[ "$method" != "GET" ]]; then
-        curl_args+=(-X "$method")
+        # Build JSON body from params using python3
+        if [[ ${#body_params[@]} -gt 0 ]]; then
+            local json_body
+            json_body=$(python3 -c "
+import json, sys
+args = sys.argv[1:]
+d = {}
+for i in range(0, len(args), 2):
+    d[args[i]] = args[i+1]
+print(json.dumps(d))
+" "${body_params[@]}")
+            curl_args+=(-X "$method" -H "Content-Type: application/json" -d "$json_body")
+        else
+            curl_args+=(-X "$method")
+        fi
+    else
+        # GET/DELETE or no params: use query string
+        if [[ ${#query_params[@]} -gt 0 ]]; then
+            for param in "${query_params[@]}"; do
+                local key="${param%%=*}"
+                local value="${param#*=}"
+                local encoded_value
+                encoded_value=$(urlencode "$value")
+                if [[ -n "$query_string" ]]; then
+                    query_string="${query_string}&${key}=${encoded_value}"
+                else
+                    query_string="${key}=${encoded_value}"
+                fi
+            done
+            url="${url}?${query_string}"
+        fi
+
+        if [[ "$method" != "GET" ]]; then
+            curl_args+=(-X "$method")
+        fi
     fi
 
     curl_args+=("$url")

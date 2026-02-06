@@ -11,11 +11,16 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from ..deps import jira
 from ..response import success, error
 
 router = APIRouter()
+
+
+class SprintIssuesBody(BaseModel):
+    issues: str
 
 
 @router.get("/boards")
@@ -71,14 +76,10 @@ async def get_sprint(
 
 
 @router.post("/sprint/{sprint_id}/issues")
-async def add_issues_to_sprint(
-    sprint_id: int,
-    issues: str = Query(..., description="Comma-separated issue keys to add"),
-    client=Depends(jira),
-):
+async def add_issues_to_sprint(sprint_id: int, body: SprintIssuesBody, client=Depends(jira)):
     """Add issues to a sprint."""
     try:
-        issue_keys = [k.strip() for k in issues.split(",")]
+        issue_keys = [k.strip() for k in body.issues.split(",")]
 
         result = client.post(
             f"rest/agile/1.0/sprint/{sprint_id}/issue",

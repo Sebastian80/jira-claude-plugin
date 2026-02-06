@@ -74,7 +74,49 @@ def condense_parameter(param: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def condense_endpoint(path: str, method: str, spec: dict[str, Any]) -> dict[str, Any]:
+def resolve_ref(ref: str, openapi: dict[str, Any]) -> dict[str, Any]:
+    """Follow a $ref pointer in the OpenAPI spec."""
+    # $ref looks like "#/components/schemas/CreateIssueBody"
+    parts = ref.lstrip("#/").split("/")
+    node = openapi
+    for part in parts:
+        node = node.get(part, {})
+    return node
+
+
+def condense_body_schema(schema: dict[str, Any], openapi: dict[str, Any]) -> list[dict[str, Any]]:
+    """Convert requestBody JSON schema properties into condensed param format."""
+    if "$ref" in schema:
+        schema = resolve_ref(schema["$ref"], openapi)
+
+    properties = schema.get("properties", {})
+    required_fields = set(schema.get("required", []))
+    params = []
+
+    for name, prop in properties.items():
+        # Resolve anyOf nullable pattern: anyOf: [{type: string}, {type: null}]
+        prop_type = prop.get("type", "string")
+        if "anyOf" in prop:
+            for option in prop["anyOf"]:
+                if option.get("type") != "null":
+                    prop_type = option.get("type", "string")
+                    break
+
+        result = {
+            "name": name,
+            "required": name in required_fields,
+            "type": prop_type,
+        }
+        if "default" in prop:
+            result["default"] = prop["default"]
+        if "enum" in prop:
+            result["enum"] = prop["enum"]
+        params.append(result)
+
+    return params
+
+
+def condense_endpoint(path: str, method: str, spec: dict[str, Any], openapi: dict[str, Any]) -> dict[str, Any]:
     """Condense an endpoint spec to essential info."""
     # Extract first line of description as summary
     desc = spec.get("description", "")
@@ -86,15 +128,23 @@ def condense_endpoint(path: str, method: str, spec: dict[str, Any]) -> dict[str,
         "summary": summary,
     }
 
-    # Condense parameters
+    # Condense query/path parameters
+    condensed_params = []
     params = spec.get("parameters", [])
     if params:
-        condensed_params = []
         for p in params:
             if p.get("in") in ("query", "path"):
                 condensed_params.append(condense_parameter(p))
-        if condensed_params:
-            result["params"] = condensed_params
+
+    # Condense requestBody parameters (Pydantic models)
+    request_body = spec.get("requestBody", {})
+    if request_body:
+        body_schema = request_body.get("content", {}).get("application/json", {}).get("schema", {})
+        if body_schema:
+            condensed_params.extend(condense_body_schema(body_schema, openapi))
+
+    if condensed_params:
+        result["params"] = condensed_params
 
     return result
 
@@ -198,7 +248,7 @@ async def get_help(
 
         for method, spec in methods.items():
             if method in ("get", "post", "put", "patch", "delete"):
-                endpoints.append(condense_endpoint(path, method, spec))
+                endpoints.append(condense_endpoint(path, method, spec, openapi))
 
     # Sort by path
     endpoints.sort(key=lambda e: (e["path"], e["method"]))
@@ -243,7 +293,7 @@ async def get_endpoint_help(
 
         for method, spec in methods.items():
             if method in ("get", "post", "put", "patch", "delete"):
-                ep = condense_endpoint(path, method, spec)
+                ep = condense_endpoint(path, method, spec, openapi)
                 # Include full description for specific endpoint
                 ep["description"] = spec.get("description", "")
                 endpoints.append(ep)
