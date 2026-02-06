@@ -1,6 +1,6 @@
 {
   "name": "jira",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "description": "Standalone Jira CLI for issue tracking and workflow automation",
   "author": {
     "name": "Netresearch DTT GmbH",
@@ -9,6 +9,8 @@
   "license": "MIT",
   "skills": [
     "./skills/jira",
-    "./skills/jira-syntax"
+    "./skills/jira-syntax",
+    "./skills/jira-report",
+    "./skills/jira-bulk"
   ]
 }
