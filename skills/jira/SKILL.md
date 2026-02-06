@@ -19,16 +19,9 @@ If a ticket key (format PROJECTKEY-NUMBER, e.g., OROSPD-589, HMKG-2064, XX-12) a
 
 **Simple lookups** (single ticket, quick status check): Handle directly with commands below.
 
-**Complex workflows** - spawn `jira-agent` to isolate context:
-- Multi-ticket analysis
-- Sprint/backlog reviews
-- Bulk transitions or updates
-- Reporting across many tickets
-- Deep workflow analysis
-
-```
-Use Task tool: subagent_type="jira-agent"
-```
+**Complex workflows** use dedicated skills that fork to `jira-agent` with isolated context:
+- **`/jira-report`** - Multi-ticket analysis, sprint reviews, reporting, dependency analysis
+- **`/jira-bulk`** - Bulk transitions or updates across multiple tickets
 
 ## Quick Reference
 
