@@ -101,8 +101,12 @@ jira status
 # View server logs
 jira logs
 
-# Test direct API call
+# Test direct API call (GET)
 curl -s "http://127.0.0.1:9200/jira/user/me"
+
+# Direct API call (POST/PATCH) — must use JSON body, not query params
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"text": "Hello"}' "http://127.0.0.1:9200/jira/comment/PROJ-123"
 
 # View OpenAPI docs
 curl -s "http://127.0.0.1:9200/openapi.json" | jq '.paths | keys'

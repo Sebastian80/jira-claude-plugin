@@ -119,6 +119,7 @@ h2. Actual
 
 ## Gotchas
 
+- POST/PATCH endpoints expect **JSON request body**, not query parameters. The CLI wrapper handles this automatically, but direct API calls must send `Content-Type: application/json` with a JSON body
 - Implementation summaries go in **comments** (`jira comment`), NOT in the description field
 - Never write to two tickets simultaneously — parallel writes cause data corruption
 - After any write operation, re-fetch the ticket to verify the content was placed correctly
