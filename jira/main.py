@@ -27,7 +27,7 @@ ROUTES_REQUIRING_KEY = {
     "/jira/watchers": "watchers/{key} - List watchers for an issue",
     "/jira/watcher": "watcher/{key} - Add watcher (POST) or remove (DELETE)",
     "/jira/comments": "comments/{key} - List comments for an issue",
-    "/jira/comment": "comment/{key} - Add comment to issue (POST)",
+    "/jira/comment": "comment/{key} - Add comment (POST) or delete (DELETE comment/{key}/{id})",
     "/jira/attachments": "attachments/{key} - List attachments for an issue",
     "/jira/attachment": "attachment/{key} - Upload attachment (POST) or delete (DELETE)",
     "/jira/links": "links/{key} - List links for an issue",

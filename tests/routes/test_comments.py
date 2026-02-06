@@ -3,8 +3,11 @@ Tests for comment endpoints.
 
 Endpoints tested:
 - GET /comments/{key} - List comments on issue
-- POST /comment/{key} - Add comment (skipped - write operation)
+- POST /comment/{key} - Add comment (write operation)
+- DELETE /comment/{key}/{comment_id} - Delete comment (write operation)
 """
+
+import json
 
 import pytest
 
@@ -82,13 +85,50 @@ class TestCommentHelp:
 class TestAddComment:
     """Test /comment/{key} POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+    @pytest.mark.write_test
     def test_add_comment(self):
         """Should add comment to issue."""
         result = run_cli("jira", "comment", TEST_ISSUE,
                         "--text", "[TEST] Auto-generated test comment")
         data = get_data(result)
         assert "id" in data or "self" in data
+
+
+class TestDeleteComment:
+    """Test /comment/{key}/{comment_id} DELETE endpoint."""
+
+    @pytest.mark.write_test
+    def test_create_and_delete_comment(self):
+        """Should create a comment, then delete it."""
+        # Create a comment first
+        result = run_cli("jira", "comment", TEST_ISSUE,
+                        "--text", "[TEST] Comment to delete")
+        data = get_data(result)
+        comment_id = str(data["id"])
+
+        # Delete the comment
+        stdout, stderr, code = run_cli_raw(
+            "jira", "comment", TEST_ISSUE, comment_id, "-X", "DELETE",
+            "--format", "json")
+        assert code == 0
+        parsed = json.loads(stdout.strip())
+        assert parsed.get("success") is True
+
+        # Verify comment is gone
+        result = run_cli("jira", "comments", TEST_ISSUE)
+        comments = get_data(result)
+        comment_ids = [str(c.get("id")) for c in comments]
+        assert comment_id not in comment_ids
+
+    @pytest.mark.write_test
+    def test_delete_nonexistent_comment(self):
+        """Should return 404 for nonexistent comment ID."""
+        stdout, stderr, code = run_cli_raw(
+            "jira", "comment", TEST_ISSUE, "99999999", "-X", "DELETE",
+            "--format", "json")
+        output = stdout.strip() or stderr.strip()
+        parsed = json.loads(output)
+        assert parsed.get("success") is False or code != 0
 
 
 if __name__ == "__main__":
