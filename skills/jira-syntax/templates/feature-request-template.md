@@ -216,21 +216,19 @@ h4. Phase 3 - Full Release (Week 5+)
 *Target Release:* Q1 2025
 ```
 
-## Usage with jira-communication Skill
+## Usage with jira CLI
 
 ```bash
-# Create the feature request using the script
-uv run scripts/workflow/jira-create.py issue PROJ \
-  "Bulk export functionality for multiple projects" \
-  --type Story \
+# Create the feature request (save description to file first, then pass inline)
+jira create --project PROJ --type Story \
+  --summary "Bulk export functionality for multiple projects" \
   --priority High \
   --labels feature-request,export,productivity \
-  --description-file feature-description.txt
+  --description "$(cat feature-description.txt)"
 
 # Or with inline description (short version)
-uv run scripts/workflow/jira-create.py issue PROJ \
-  "Bulk export functionality for multiple projects" \
-  --type Story \
+jira create --project PROJ --type Story \
+  --summary "Bulk export functionality for multiple projects" \
   --priority High
 ```
 

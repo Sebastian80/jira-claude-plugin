@@ -129,21 +129,19 @@ Suggested fix: Add null check before calling {{reset()}} method.
 *Date:* 2025-11-06
 ```
 
-## Usage with jira-communication Skill
+## Usage with jira CLI
 
 ```bash
-# Create the bug report using the script
-uv run scripts/workflow/jira-create.py issue PROJ \
-  "Login button unresponsive after failed authentication" \
-  --type Bug \
+# Create the bug report (save description to file first, then pass inline)
+jira create --project PROJ --type Bug \
+  --summary "Login button unresponsive after failed authentication" \
   --priority High \
   --labels frontend,authentication,ux \
-  --description-file bug-description.txt
+  --description "$(cat bug-description.txt)"
 
 # Or with inline description (short version)
-uv run scripts/workflow/jira-create.py issue PROJ \
-  "Login button unresponsive after failed authentication" \
-  --type Bug \
+jira create --project PROJ --type Bug \
+  --summary "Login button unresponsive after failed authentication" \
   --priority High
 ```
 

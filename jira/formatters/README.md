@@ -360,7 +360,7 @@ return formatted(data, format, "sprints")
 
 ## Design Principles
 
-1. **AI format is default** - Optimized for token efficiency
+1. **JSON format is default** - AI format recommended for LLM consumers
 2. **Structured over pretty** - AI format uses consistent patterns
 3. **Include context** - Warnings, linked issues, missing items
 4. **Human format is optional** - Rich/markdown for human consumers

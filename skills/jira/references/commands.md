@@ -42,8 +42,8 @@ jira search --jql 'status not in (Done, Closed)'
 
 ```bash
 jira transitions PROJ-123                     # List available transitions
-jira transition PROJ-123 --transition "In Progress"
-jira transition PROJ-123 --transition "Done"
+jira transition PROJ-123 --target "In Progress"
+jira transition PROJ-123 --target "Done"
 ```
 
 ## Comments
@@ -115,10 +115,10 @@ jira health                                   # Check connection
 All commands support `--format`:
 
 ```bash
-jira issue PROJ-123 --format ai       # Token-efficient (default)
+jira issue PROJ-123 --format json     # Default. Raw JSON
+jira issue PROJ-123 --format ai       # Token-efficient for LLMs
 jira issue PROJ-123 --format rich     # Terminal colors
 jira issue PROJ-123 --format markdown # Markdown tables
-jira issue PROJ-123 --format json     # Raw JSON
 ```
 
 ## Help

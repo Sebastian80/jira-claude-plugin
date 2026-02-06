@@ -103,18 +103,16 @@ validate_file() {
         warning "Potential table header without double pipes. Headers should use: ||Header||"
     fi
 
-    # Check for unclosed {code} blocks
-    local code_open=$(echo "$content" | grep -c "{code")
-    local code_close=$(echo "$content" | grep -c "{/code}")
-    if [ "$code_open" -ne "$code_close" ]; then
-        error "Mismatched {code} tags: $code_open opening, $code_close closing"
+    # Check for unclosed {code} blocks (Jira uses {code} for both open and close)
+    local code_count=$(echo "$content" | grep -o "{code" | wc -l)
+    if [ $((code_count % 2)) -ne 0 ]; then
+        error "Mismatched {code} tags: $code_count occurrences (should be even — each block needs opening and closing {code})"
     fi
 
-    # Check for unclosed {panel} blocks
-    local panel_open=$(echo "$content" | grep -c "{panel")
-    local panel_close=$(echo "$content" | grep -c "{/panel}")
-    if [ "$panel_open" -ne "$panel_close" ]; then
-        error "Mismatched {panel} tags: $panel_open opening, $panel_close closing"
+    # Check for unclosed {panel} blocks (Jira uses {panel} for both open and close)
+    local panel_count=$(echo "$content" | grep -o "{panel" | wc -l)
+    if [ $((panel_count % 2)) -ne 0 ]; then
+        error "Mismatched {panel} tags: $panel_count occurrences (should be even — each block needs opening and closing {panel})"
     fi
 
     # Check for unclosed {color} blocks

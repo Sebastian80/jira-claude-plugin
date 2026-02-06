@@ -57,10 +57,10 @@ jira help search                             # Command-specific help
 ## Output Formats
 
 ```bash
---format json      # Default: Raw API response
---format ai        # Token-efficient for LLMs
---format rich      # Terminal colors and panels
---format markdown  # Markdown tables
+--format json      # Default. Raw API response — use when parsing specific fields
+--format ai        # Token-efficient summaries — use for analysis and reporting
+--format rich      # Terminal colors and panels — use for human-readable output
+--format markdown  # Markdown tables — use for pasting into docs or PRs
 ```
 
 ## Creating Issues
@@ -122,6 +122,13 @@ h2. Actual
 - Bold: `*text*` (NOT `**text**`)
 - Code: `{code:python}...{code}` (NOT triple backticks)
 - Links: `[text|url]` (NOT `[text](url)`)
+
+## Gotchas
+
+- Implementation summaries go in **comments** (`jira comment`), NOT in the description field
+- Never write to two tickets simultaneously — parallel writes cause data corruption
+- After any write operation, re-fetch the ticket to verify the content was placed correctly
+- Never use temp files for Jira content — pipe directly to avoid collisions
 
 ## References
 
