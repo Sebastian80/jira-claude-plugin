@@ -12,9 +12,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, formatted
+from ..response import success, formatted, get_status_code, is_status
 
 router = APIRouter()
 
@@ -30,10 +31,11 @@ async def get_issue_links(
         issue = client.issue(key, fields="issuelinks")
         links = issue.get("fields", {}).get("issuelinks", [])
         return formatted(links, format, "links")
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "not exist" in error_msg or "not found" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Issue {key} not found")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -113,10 +115,11 @@ async def list_weblinks(
         response.raise_for_status()
         links = response.json()
         return formatted(links, format, "weblinks")
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "not exist" in error_msg or "not found" in error_msg or "404" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Issue {key} not found")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

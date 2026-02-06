@@ -9,10 +9,11 @@ Endpoints:
 
 import re
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import formatted, formatted_error
+from ..response import formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -80,11 +81,10 @@ async def search(
                 },
             }
         return formatted(issues, format, "search")
-    except Exception as e:
-        error_msg = str(e)
+    except HTTPError as e:
         hint = "Check JQL syntax"
-        if "field" in error_msg.lower():
-            hint = "Invalid field name"
-        elif "does not exist" in error_msg.lower() or "existiert nicht" in error_msg.lower():
-            hint = "Value does not exist"
-        return formatted_error(f"JQL error: {e}", hint=hint, fmt=format)
+        if is_status(e, 400):
+            hint = "Invalid JQL query"
+        return formatted_error(f"JQL error: {e}", hint=hint, fmt=format, status=get_status_code(e) or 400)
+    except Exception as e:
+        return formatted_error(f"JQL error: {e}", hint="Check JQL syntax", fmt=format)

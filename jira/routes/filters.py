@@ -7,9 +7,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import formatted
+from ..response import formatted, get_status_code, is_status
 
 router = APIRouter()
 
@@ -26,10 +27,11 @@ async def list_filters(
         response.raise_for_status()
         filters = response.json()
         return formatted(filters, format, "filters")
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "404" in error_msg or "not found" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             return formatted([], format, "filters")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

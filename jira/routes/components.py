@@ -9,9 +9,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted
+from ..response import success, error, formatted, get_status_code, is_status
 
 router = APIRouter()
 
@@ -26,11 +27,12 @@ async def list_components(
     try:
         components = client.get_project_components(project)
         return formatted(components, format, "components")
-    except Exception as e:
-        error_msg = str(e)
-        if "404" in error_msg or "not found" in error_msg.lower():
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Project '{project}' not found", status=404)
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/component")
@@ -51,13 +53,14 @@ async def create_component(
 
         result = client.create_component(component)
         return success(result)
-    except Exception as e:
-        error_msg = str(e)
-        if "404" in error_msg or "not found" in error_msg.lower():
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Project '{project}' not found")
-        if "already exists" in error_msg.lower():
+        if is_status(e, 409):
             return error(f"Component '{name}' already exists in {project}")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/component/{component_id}")
@@ -70,11 +73,12 @@ async def get_component(
     try:
         component = client.component(component_id)
         return formatted(component, format, "component")
-    except Exception as e:
-        error_msg = str(e)
-        if "404" in error_msg or "not found" in error_msg.lower():
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Component '{component_id}' not found", status=404)
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/component/{component_id}")
@@ -83,8 +87,9 @@ async def delete_component(component_id: str, client=Depends(jira)):
     try:
         client.delete_component(component_id)
         return success({"deleted": True, "component_id": component_id})
-    except Exception as e:
-        error_msg = str(e)
-        if "404" in error_msg or "not found" in error_msg.lower():
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Component '{component_id}' not found", status=404)
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

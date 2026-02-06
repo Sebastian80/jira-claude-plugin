@@ -8,9 +8,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, formatted
+from ..response import success, formatted, get_status_code, is_status
 
 router = APIRouter()
 
@@ -26,9 +27,11 @@ async def list_worklogs(
         result = client.issue_get_worklog(key)
         worklogs = result.get("worklogs", [])
         return formatted(worklogs, format, "worklogs")
-    except Exception as e:
-        if "does not exist" in str(e).lower() or "404" in str(e):
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Issue {key} not found")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -60,13 +63,14 @@ async def add_worklog(
 
         result = client.issue_add_json_worklog(key, worklog)
         return success(result)
-    except Exception as e:
-        error_msg = str(e)
-        if "does not exist" in error_msg.lower() or "404" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Issue {key} not found")
-        elif "time" in error_msg.lower():
-            raise HTTPException(status_code=400, detail=f"{error_msg}. Use format like '2h', '1d 4h', '30m'")
-        raise HTTPException(status_code=500, detail=error_msg)
+        if is_status(e, 400):
+            raise HTTPException(status_code=400, detail=f"{e}. Use format like '2h', '1d 4h', '30m'")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/worklog/{key}/{worklog_id}")
@@ -81,8 +85,9 @@ async def get_worklog(
         url = f"rest/api/2/issue/{key}/worklog/{worklog_id}"
         worklog = client.get(url)
         return formatted(worklog, format, "worklog")
-    except Exception as e:
-        error_msg = str(e)
-        if "does not exist" in error_msg.lower() or "404" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Worklog {worklog_id} not found on issue {key}")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

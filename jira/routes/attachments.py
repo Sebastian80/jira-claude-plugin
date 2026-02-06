@@ -10,9 +10,10 @@ Endpoints:
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error
+from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -28,9 +29,11 @@ async def list_attachments(
         issue = client.issue(key, fields="attachment")
         attachments = issue.get("fields", {}).get("attachment", [])
         return formatted(attachments, format, "attachments")
-    except Exception as e:
-        if "does not exist" in str(e).lower() or "404" in str(e):
+    except HTTPError as e:
+        if is_status(e, 404):
             return formatted_error(f"Issue {key} not found", fmt=format, status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -50,13 +53,14 @@ async def upload_attachment(
 
         result = client.add_attachment(issue_key=key, filename=filename, attachment=file_data)
         return success(result)
-    except Exception as e:
-        error_msg = str(e)
-        if "does not exist" in error_msg.lower() or "404" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Issue {key} not found")
-        elif "permission" in error_msg.lower():
+        if is_status(e, 403):
             return error("Permission denied")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/attachment/{attachment_id}")
@@ -65,10 +69,11 @@ async def delete_attachment(attachment_id: str, client=Depends(jira)):
     try:
         client.delete_attachment(attachment_id)
         return success({"attachment_id": attachment_id, "deleted": True})
-    except Exception as e:
-        error_msg = str(e)
-        if "404" in error_msg or "not found" in error_msg.lower():
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Attachment {attachment_id} not found", status=404)
-        elif "permission" in error_msg.lower():
+        if is_status(e, 403):
             return error("Permission denied")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

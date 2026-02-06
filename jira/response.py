@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from fastapi.responses import JSONResponse, PlainTextResponse
+from requests import HTTPError
 
 try:
     from .formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
@@ -15,6 +16,18 @@ except ImportError:
     from formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
 
 logger = logging.getLogger("jira.response")
+
+
+def get_status_code(e: Exception) -> int | None:
+    """Extract HTTP status code from an HTTPError, or None for other exceptions."""
+    if isinstance(e, HTTPError) and hasattr(e, 'response') and e.response is not None:
+        return e.response.status_code
+    return None
+
+
+def is_status(e: Exception, code: int) -> bool:
+    """Check if an exception represents a specific HTTP status code."""
+    return get_status_code(e) == code
 
 # Valid format values
 VALID_FORMATS = {"json", "rich", "ai", "markdown"}

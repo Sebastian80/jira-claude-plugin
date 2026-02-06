@@ -8,9 +8,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error
+from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -25,9 +26,11 @@ async def list_watchers(
     try:
         watchers = client.issue_get_watchers(key)
         return formatted(watchers, format, "watchers")
-    except Exception as e:
-        if "does not exist" in str(e).lower() or "404" in str(e):
+    except HTTPError as e:
+        if is_status(e, 404):
             return formatted_error(f"Issue {key} not found", fmt=format, status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -41,15 +44,14 @@ async def add_watcher(
     try:
         client.issue_add_watcher(key, username)
         return success({"issue_key": key, "username": username, "added": True})
-    except Exception as e:
-        error_msg = str(e)
-        if "does not exist" in error_msg.lower() or "404" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Issue {key} not found")
-        elif "user" in error_msg.lower() and "not found" in error_msg.lower():
-            return error(f"User {username} not found")
-        elif "permission" in error_msg.lower():
+        if is_status(e, 403):
             return error("Permission denied")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/watcher/{key}/{username}")
@@ -58,10 +60,11 @@ async def remove_watcher(key: str, username: str, client=Depends(jira)):
     try:
         client.issue_delete_watcher(key, username)
         return success({"issue_key": key, "username": username, "removed": True})
-    except Exception as e:
-        error_msg = str(e)
-        if "does not exist" in error_msg.lower() or "404" in error_msg:
+    except HTTPError as e:
+        if is_status(e, 404):
             return error(f"Issue {key} or watcher {username} not found")
-        elif "permission" in error_msg.lower():
+        if is_status(e, 403):
             return error("Permission denied")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

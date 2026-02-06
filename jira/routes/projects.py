@@ -9,9 +9,10 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import formatted
+from ..response import formatted, get_status_code, is_status
 
 router = APIRouter()
 
@@ -47,9 +48,11 @@ async def get_project(
     try:
         project = client.project(key)
         return formatted(project, format, "project")
-    except Exception as e:
-        if "does not exist" in str(e).lower() or "404" in str(e):
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Project {key} not found")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -63,9 +66,11 @@ async def get_project_components(
     try:
         components = client.get_project_components(key)
         return formatted(components, format, "components")
-    except Exception as e:
-        if "does not exist" in str(e).lower() or "404" in str(e):
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Project {key} not found")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -79,7 +84,9 @@ async def get_project_versions(
     try:
         versions = client.get_project_versions(key)
         return formatted(versions, format, "versions")
-    except Exception as e:
-        if "does not exist" in str(e).lower() or "404" in str(e):
+    except HTTPError as e:
+        if is_status(e, 404):
             raise HTTPException(status_code=404, detail=f"Project {key} not found")
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
