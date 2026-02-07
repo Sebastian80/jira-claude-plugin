@@ -126,6 +126,7 @@ start_server() {
     fi
 
     ensure_venv
+    ensure_symlink
 
     log "Starting server on $HOST:$PORT..."
     cd "$PLUGIN_DIR"
