@@ -1,21 +1,17 @@
 # Jira CLI for Claude Code
 
-**Version 2.0.0** | Standalone Jira CLI for issue tracking and workflow automation.
-
-## Overview
-
-A self-contained Jira CLI that runs as a local FastAPI server. Designed for token-efficient communication with LLMs while providing rich terminal output for humans.
+Standalone Jira CLI plugin for Claude Code. Self-contained FastAPI server with full issue tracking and workflow automation.
 
 ```
 ┌─────────────────┐     ┌───────────────────┐     ┌─────────────┐
-│  Claude/AI      │────▶│  bin/jira         │────▶│  Jira API   │
-│  Agent          │◀────│  (auto-start srv) │◀────│  Cloud/DC   │
+│  Claude / User  │────▶│  bin/jira          │────▶│  Jira API   │
+│                 │◀────│  (auto-start srv)  │◀────│  Cloud/DC   │
 └─────────────────┘     └───────────────────┘     └─────────────┘
                                 │
                                 ▼
                        ┌───────────────────┐
-                       │  FastAPI server   │
-                       │  (port 9200)      │
+                       │  FastAPI server    │
+                       │  (port 9200)       │
                        └───────────────────┘
 ```
 
@@ -29,10 +25,11 @@ jira issue PROJ-123
 jira search --jql 'assignee = currentUser()'
 
 # Transition an issue
-jira transition PROJ-123 --transition "In Progress"
+jira transition PROJ-123 --target "In Progress"
 
-# Add a comment
-jira comment PROJ-123 --body "Work completed"
+# Comments
+jira comment PROJ-123 --text "Work completed"
+jira comment PROJ-123 12345 -X DELETE
 
 # Full command list
 jira help
@@ -42,27 +39,33 @@ jira help
 
 | Category | Capabilities |
 |----------|--------------|
-| **Issues** | Get, create, update issues |
+| **Issues** | Get, create, update, delete issues |
 | **Search** | JQL queries with pagination |
-| **Workflow** | Transitions, status changes |
-| **Comments** | List, add comments |
-| **Time Tracking** | Worklogs, time spent |
+| **Workflow** | Smart multi-step transitions with path-finding |
+| **Comments** | List, add, delete comments |
+| **Time Tracking** | Worklogs with time format validation |
 | **Links** | Issue links, web links |
-| **Project Data** | Components, versions, metadata |
+| **Attachments** | List, upload, delete attachments |
+| **Watchers** | List, add, remove watchers |
+| **Sprints** | Boards, sprints, sprint issue management |
+| **Project Data** | Components, versions, filters, priorities, statuses |
+| **Help** | Self-describing API docs from OpenAPI spec |
 
 ## Output Formats
 
-| Format | Use Case | Example |
-|--------|----------|---------|
-| `ai` | LLM consumption (default) | Token-efficient structured text |
-| `rich` | Human terminal | Colored panels, tables, icons |
-| `markdown` | Documentation | Markdown tables |
-| `json` | Scripts/automation | Raw API response |
+All commands support `--format`:
+
+| Format | Use Case |
+|--------|----------|
+| `json` | Raw API response (default) |
+| `ai` | Token-efficient for LLM consumption |
+| `rich` | Colored terminal output |
+| `markdown` | Tables for docs and PRs |
 
 ```bash
-jira issue PROJ-123 --format ai       # Default
-jira issue PROJ-123 --format rich     # Terminal colors
-jira issue PROJ-123 --format json     # Raw JSON
+jira issue PROJ-123 --format ai
+jira issue PROJ-123 --format rich
+jira search --jql 'project = PROJ' --format markdown
 ```
 
 ## Configuration
@@ -82,10 +85,12 @@ JIRA_URL=https://jira.company.com
 JIRA_PERSONAL_TOKEN=your-pat
 ```
 
+Verify with: `jira health`
+
 ## Server Management
 
 ```bash
-jira start      # Start server (background)
+jira start      # Start server (auto-starts on first command)
 jira stop       # Stop server
 jira status     # Show server status
 jira restart    # Restart server
@@ -93,55 +98,57 @@ jira logs       # Tail server logs
 jira health     # Check Jira connection
 ```
 
+## Plugin Structure
+
+```
+├── plugin.json            # Plugin manifest
+├── bin/jira               # Self-bootstrapping CLI wrapper
+├── jira/                  # FastAPI server
+│   ├── main.py            # Server entry point
+│   ├── deps.py            # Dependency injection
+│   ├── response.py        # Response formatting + error utilities
+│   ├── routes/            # 20 endpoint modules
+│   ├── formatters/        # Output formatters (ai, rich, markdown)
+│   └── lib/               # Config, client, workflow engine
+├── agents/
+│   └── jira-agent.md      # Subagent for complex workflows (memory-enabled)
+├── skills/
+│   ├── jira/              # Main CLI skill + references
+│   ├── jira-syntax/       # Wiki markup skill + templates
+│   ├── jira-report/       # Multi-ticket analysis (forks to jira-agent)
+│   └── jira-bulk/         # Bulk operations (forks to jira-agent)
+├── tests/                 # Unit + integration tests
+├── pyproject.toml         # Python package config
+└── pytest.ini             # Test config
+```
+
+## API Design
+
+- **GET/DELETE** endpoints use query parameters
+- **POST/PATCH** endpoints use JSON request bodies (Pydantic models)
+- Error handling uses HTTP status codes via `requests.HTTPError`
+- All endpoints return `{"success": true, "data": ...}` or `{"success": false, "error": ...}`
+
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Deep dive into standalone architecture |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture and data flow |
 | [EXTENDING.md](EXTENDING.md) | Guide to adding new functionality |
-
-## Project Structure
-
-```
-jira/
-├── README.md              # This file
-├── ARCHITECTURE.md        # How everything connects
-├── EXTENDING.md           # Adding new functionality
-├── bin/
-│   └── jira               # Self-bootstrapping CLI wrapper
-├── jira/                  # Main Python package
-│   ├── main.py            # FastAPI server entry point
-│   ├── deps.py            # Dependency injection
-│   ├── response.py        # Response formatting
-│   ├── routes/            # Endpoint handlers
-│   ├── formatters/        # Output formatters
-│   └── lib/               # Config, client utilities
-├── skills/                # Claude Code skills
-│   ├── jira/              # Main Jira skill
-│   └── jira-syntax/       # Wiki markup skill
-└── tests/                 # Test suite
-```
+| `jira help` | Live API documentation from OpenAPI spec |
 
 ## Development
 
 ```bash
-# Run tests
-cd /path/to/jira-plugin
-pytest tests/ -v
+# Run tests (from plugin root)
+~/.local/share/jira-cli/.venv/bin/python -m pytest tests/ -v
 
-# Restart server after changes
+# Run write tests (creates real data in Jira)
+~/.local/share/jira-cli/.venv/bin/python -m pytest tests/ -v --run-write-tests
+
+# Restart server after code changes
 jira restart
-
-# Check server health
-jira health
 ```
-
-## Version History
-
-- **2.0.0**: Standalone architecture - no bridge dependency, self-bootstrapping CLI
-- **1.2.0**: Bulk issue fetch with parallel execution, field validation
-- **1.1.0**: User/health formatters, registry fix, route tests
-- **1.0.0**: Initial release
 
 ## License
 

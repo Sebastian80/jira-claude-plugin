@@ -40,7 +40,7 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 │  • search.py: GET /search?jql=...                                          │
 │  • comments.py: GET/POST /comments/{key}                                   │
 │  • workflow.py: GET /transitions/{key}, POST /transition/{key}             │
-│  • ... 17 route modules total                                              │
+│  • ... 20 route modules total                                              │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ Depends(jira) injection
@@ -104,20 +104,21 @@ jira issue PROJ-123
 - Auto-creates Python venv in `~/.local/share/jira-cli/.venv`
 - Auto-installs dependencies (fastapi, uvicorn, atlassian-python-api, etc.)
 - Auto-starts server on first command
-- Proper URL encoding with `curl --data-urlencode`
 - PID file management for server lifecycle
 
 **CLI to HTTP translation:**
 ```
-jira issue PROJ-123 --format ai --expand changelog
-  │    │      │          │            │
-  │    │      │          │            └─ Query param: expand=changelog
-  │    │      │          └─ Query param: format=ai
-  │    │      └─ Path segment
-  │    └─ Endpoint name
-  └─ Plugin prefix
+GET requests: args become query parameters
+  jira issue PROJ-123 --format ai
+  → GET /jira/issue/PROJ-123?format=ai
 
-Result: GET /jira/issue/PROJ-123?format=ai&expand=changelog
+POST/PATCH requests: args become JSON body (except --format)
+  jira comment PROJ-123 --text "Hello"
+  → POST /jira/comment/PROJ-123 with body {"text": "Hello"}
+
+DELETE requests: positional args become path segments
+  jira comment PROJ-123 12345 -X DELETE
+  → DELETE /jira/comment/PROJ-123/12345
 ```
 
 ### 2. FastAPI Server (main.py)
@@ -148,9 +149,9 @@ Each module handles a specific domain:
 
 | Module | Endpoints | Purpose |
 |--------|-----------|---------|
-| issues.py | `/issue/{key}`, `/create` | Issue CRUD |
+| issues.py | `/issue/{key}`, `/create`, `/delete/{key}` | Issue CRUD |
 | search.py | `/search` | JQL queries |
-| comments.py | `/comments/{key}`, `/comment/{key}` | Comments |
+| comments.py | `/comments/{key}`, `/comment/{key}`, DELETE `/comment/{key}/{id}` | Comments |
 | workflow.py | `/transitions/{key}`, `/transition/{key}` | Status changes |
 | watchers.py | `/watchers/{key}`, `/watcher/{key}` | Watchers |
 | attachments.py | `/attachments/{key}`, `/attachment/{key}` | Files |
@@ -159,6 +160,11 @@ Each module handles a specific domain:
 | projects.py | `/projects`, `/project/{key}` | Projects |
 | statuses.py | `/statuses`, `/status/{name}` | Status metadata |
 | priorities.py | `/priorities` | Priority metadata |
+| components.py | `/components/{project}`, `/component/{id}` | Component CRUD |
+| versions.py | `/versions/{project}`, `/version/{id}` | Version/release management |
+| agile.py | `/boards`, `/sprints/{board}`, `/sprint/{id}` | Sprints and boards |
+| filters.py | `/filters`, `/filter/{id}` | Saved filters |
+| fields.py | `/fields`, `/fields/custom` | Field metadata |
 | user.py | `/user/me` | Current user |
 | health.py | `/health` | Health check |
 | help.py | `/help`, `/help/{endpoint}` | API docs |
@@ -290,29 +296,28 @@ client.jql(processed_jql, limit=50)
 formatted(issues, "ai", "search")
 ```
 
-### Pattern 3: Write Operation
+### Pattern 3: Write Operation (POST with JSON body)
 
 ```
-jira transition PROJ-123 --transition "In Progress"
+jira comment PROJ-123 --text "Work completed"
     │
     ▼
-POST /jira/transition/PROJ-123?transition=In%20Progress
+bin/jira: builds JSON body {"text": "Work completed"}
     │
     ▼
-routes/workflow.py: transition_issue()
+POST /jira/comment/PROJ-123
+  Content-Type: application/json
+  Body: {"text": "Work completed"}
     │
-    ├─▶ client.get_issue_transitions("PROJ-123")
-    │       │
-    │       ▼
-    │   Find matching transition by name
-    │       │
-    │       ▼
-    │   (not found?) → formatted_error("Transition not found", ...)
+    ▼
+routes/comments.py: add_comment(key, body: AddCommentBody)
+    │   Pydantic validates body → AddCommentBody(text="Work completed")
     │
-    └─▶ client.set_issue_status_by_transition_id(key, transition_id)
-            │
-            ▼
-        success({"key": "PROJ-123", "transitioned_to": "In Progress"})
+    ▼
+client.issue_add_comment(key, body.text)
+    │
+    ▼
+success(result)
 ```
 
 ## Extension Points
@@ -352,14 +357,20 @@ formatters/__init__.py
 
 ## Error Handling
 
-All routes use consistent error handling via `response.py`:
+All routes use HTTP status code checking via helpers in `response.py`:
 
 ```python
-# Success
-return formatted(data, format, "issue")
+from ..response import success, error, get_status_code, is_status
 
-# Error with hint
-return formatted_error("Issue not found", hint="Check issue key", fmt=format, status=404)
+try:
+    result = client.issue(key)
+    return success(result)
+except HTTPError as e:
+    if is_status(e, 404):
+        return error(f"Issue {key} not found", status=404)
+    raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))
 ```
 
 Custom 404 handler in `main.py` provides helpful messages for missing parameters:
@@ -388,16 +399,22 @@ ROUTES_REQUIRING_KEY = {
 ## File Structure
 
 ```
-jira/1.3.0/
-├── bin/jira                    # Self-bootstrapping CLI
+├── plugin.json                 # Plugin manifest
+├── bin/jira                    # Self-bootstrapping CLI wrapper
 ├── jira/                       # Python package
 │   ├── main.py                 # FastAPI app
-│   ├── deps.py                 # Dependency injection + circuit breaker
-│   ├── response.py             # Response formatting
-│   ├── routes/                 # Endpoint handlers
-│   ├── formatters/             # Output formatters
-│   └── lib/                    # Config, client utilities
+│   ├── deps.py                 # Dependency injection
+│   ├── response.py             # Response formatting + error utilities
+│   ├── routes/                 # 20 endpoint modules (Pydantic models for POST/PATCH)
+│   ├── formatters/             # Output formatters (ai, rich, markdown)
+│   └── lib/                    # Config, client, workflow engine
+├── agents/                     # Subagent definitions
+│   └── jira-agent.md           # Memory-enabled agent for complex workflows
 ├── skills/                     # Claude Code skills
-├── tests/                      # Test suite
+│   ├── jira/                   # Main CLI skill + references
+│   ├── jira-syntax/            # Wiki markup skill + templates
+│   ├── jira-report/            # Multi-ticket analysis (forks to jira-agent)
+│   └── jira-bulk/              # Bulk operations (forks to jira-agent)
+├── tests/                      # Unit + integration tests
 └── pyproject.toml              # Package config
 ```
