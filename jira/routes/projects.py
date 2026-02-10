@@ -62,16 +62,9 @@ async def get_project_components(
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
-    """Get project components."""
-    try:
-        components = client.get_project_components(key)
-        return formatted(components, format, "components")
-    except HTTPError as e:
-        if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Project {key} not found")
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Get project components (delegates to /components/{project})."""
+    from .components import list_components
+    return await list_components(key, format, client)
 
 
 @router.get("/project/{key}/versions")
@@ -80,13 +73,6 @@ async def get_project_versions(
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
-    """Get project versions."""
-    try:
-        versions = client.get_project_versions(key)
-        return formatted(versions, format, "versions")
-    except HTTPError as e:
-        if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Project {key} not found")
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Get project versions (delegates to /versions/{project})."""
+    from .versions import list_versions
+    return await list_versions(key, format, client)

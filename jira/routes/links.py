@@ -54,7 +54,8 @@ async def get_issue_links(
 
 
 @router.get("/linktypes")
-async def list_link_types_alias(
+@router.get("/link/types")
+async def list_link_types(
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
@@ -77,19 +78,6 @@ async def create_link(body: CreateLinkBody, client=Depends(jira)):
         }
         client.create_issue_link(link_data)
         return success({"from": body.from_key, "to": body.to, "type": body.type})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/link/types")
-async def list_link_types(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
-    client=Depends(jira),
-):
-    """List available issue link types."""
-    try:
-        types = client.get_issue_link_types()
-        return formatted(types, format, "linktypes")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
