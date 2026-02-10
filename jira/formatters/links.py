@@ -24,7 +24,7 @@ class JiraLinksRichFormatter(RichFormatter):
     """Rich terminal issue links table."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "type" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "type" in data[0]):
             return self._format_links(data)
         return super().format(data)
 
@@ -74,7 +74,7 @@ class JiraLinksAIFormatter(AIFormatter):
     """AI-optimized issue links."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "type" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "type" in data[0]):
             return self._format_links(data)
         return super().format(data)
 

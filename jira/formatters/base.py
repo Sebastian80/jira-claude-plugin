@@ -7,6 +7,7 @@ Provides base classes, registry, and shared utilities for all Jira formatters.
 import functools
 import json
 import os
+import re
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -278,9 +279,6 @@ def render_to_string(renderable) -> str:
 # Jira Wiki Markup Conversion
 # ═══════════════════════════════════════════════════════════════════════════════
 
-import re as _re
-
-
 def convert_jira_markup(text: str) -> Text:
     """Convert Jira wiki markup to Rich Text.
 
@@ -306,7 +304,7 @@ def convert_jira_markup(text: str) -> Text:
             result.append("\n")
 
         # Headings: h1. h2. h3. etc
-        heading_match = _re.match(r"^h([1-6])\.\s*(.*)$", line)
+        heading_match = re.match(r"^h([1-6])\.\s*(.*)$", line)
         if heading_match:
             level = int(heading_match.group(1))
             heading_text = heading_match.group(2)
@@ -324,7 +322,7 @@ def convert_jira_markup(text: str) -> Text:
             continue
 
         # Bullet list: * item (but not **bold**)
-        if _re.match(r"^\* (?!\*)", line):
+        if re.match(r"^\* (?!\*)", line):
             item_text = line[2:]
             result.append("• ", style="cyan")
             result.append(_convert_inline_markup(item_text))
@@ -378,7 +376,7 @@ def _convert_inline_markup(text: str, base_style: str = "") -> Text:
         matched_style = base_style or ""
 
         for pattern, _, style in patterns:
-            match = _re.search(pattern, remaining)
+            match = re.search(pattern, remaining)
             if match and match.start() < earliest_pos:
                 earliest_match = match
                 earliest_pos = match.start()

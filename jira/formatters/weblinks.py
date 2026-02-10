@@ -22,7 +22,7 @@ class JiraWebLinksRichFormatter(RichFormatter):
     """Rich terminal web links table."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "object" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "object" in data[0]):
             return self._format_weblinks(data)
         return super().format(data)
 
@@ -55,7 +55,7 @@ class JiraWebLinksAIFormatter(AIFormatter):
     """AI-optimized web links list."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "object" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "object" in data[0]):
             return self._format_weblinks(data)
         return super().format(data)
 

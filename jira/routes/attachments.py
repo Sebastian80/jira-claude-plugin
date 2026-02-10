@@ -7,6 +7,8 @@ Endpoints:
 - DELETE /attachment/{attachment_id} - Delete attachment
 """
 
+import io
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from requests import HTTPError
 
@@ -45,7 +47,6 @@ async def upload_attachment(
     try:
         # Wrap in BytesIO to set .name for the multipart Content-Disposition header
         # (SpooledTemporaryFile.name is read-only)
-        import io
         content = file.file.read()
         upload = io.BytesIO(content)
         upload.name = file.filename

@@ -22,7 +22,7 @@ class JiraAttachmentsRichFormatter(RichFormatter):
     """Rich terminal attachments table."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "filename" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "filename" in data[0]):
             return self._format_attachments(data)
         return super().format(data)
 
@@ -64,7 +64,7 @@ class JiraAttachmentsAIFormatter(AIFormatter):
     """AI-optimized attachments list."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "filename" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "filename" in data[0]):
             return self._format_attachments(data)
         return super().format(data)
 

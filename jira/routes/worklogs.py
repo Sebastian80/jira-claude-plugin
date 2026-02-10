@@ -7,6 +7,8 @@ Endpoints:
 - GET /worklog/{key}/{worklog_id} - Get specific worklog
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from requests import HTTPError
@@ -45,8 +47,6 @@ async def list_worklogs(
 @router.post("/worklog/{key}")
 async def add_worklog(key: str, body: AddWorklogBody, client=Depends(jira)):
     """Add worklog to issue."""
-    from datetime import datetime
-
     # Validate timeSpent is not empty
     if not body.timeSpent or not body.timeSpent.strip():
         raise HTTPException(status_code=400, detail="timeSpent cannot be empty. Use format like '2h', '1d 4h', '30m'")

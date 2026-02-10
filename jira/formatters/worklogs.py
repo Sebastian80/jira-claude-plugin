@@ -22,7 +22,7 @@ class JiraWorklogsRichFormatter(RichFormatter):
     """Rich terminal worklogs table."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "timeSpent" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "timeSpent" in data[0]):
             return self._format_worklogs(data)
         return super().format(data)
 
@@ -58,7 +58,7 @@ class JiraWorklogsAIFormatter(AIFormatter):
     """AI-optimized worklogs list."""
 
     def format(self, data: Any) -> str:
-        if isinstance(data, list) and (not data or "timeSpent" in data[0] if data else True):
+        if isinstance(data, list) and (not data or "timeSpent" in data[0]):
             return self._format_worklogs(data)
         return super().format(data)
 
