@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-# === INLINE_START: config ===
-
 DEFAULT_ENV_FILE = Path.home() / ".env.jira"
 
 # Cloud authentication: JIRA_USERNAME + JIRA_API_TOKEN
@@ -112,5 +110,3 @@ def get_auth_mode(config: dict) -> str:
     if config.get('JIRA_PERSONAL_TOKEN'):
         return 'pat'
     return 'cloud'
-
-# === INLINE_END: config ===

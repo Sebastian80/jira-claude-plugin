@@ -10,10 +10,7 @@ from typing import Any
 from fastapi.responses import JSONResponse, PlainTextResponse
 from requests import HTTPError
 
-try:
-    from .formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
-except ImportError:
-    from formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
+from .formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
 
 logger = logging.getLogger("jira.response")
 

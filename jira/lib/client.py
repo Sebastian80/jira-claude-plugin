@@ -5,8 +5,6 @@ from atlassian import Jira
 
 from .config import load_env, validate_config, get_auth_mode
 
-# === INLINE_START: client ===
-
 def get_jira_client(env_file: Optional[str] = None) -> Jira:
     """Initialize and return a Jira client.
 
@@ -78,5 +76,3 @@ def get_jira_client(env_file: Optional[str] = None) -> Jira:
                 f"    - JIRA_USERNAME is your email (Cloud) or username (Server/DC)\n"
                 f"    - JIRA_API_TOKEN is valid\n"
             )
-
-# === INLINE_END: client ===
