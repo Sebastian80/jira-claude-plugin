@@ -1,63 +1,18 @@
 """
 Pytest fixtures for jira plugin tests.
+
+Fixtures here are used by unit tests (tests/unit/test_formatters.py).
+Route tests use MockJiraClient via tests/routes/helpers.py instead.
 """
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 # Add plugin root to path
 PLUGIN_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT))
-
-
-
-@pytest.fixture
-def mock_jira_client():
-    """Create a mock Jira client."""
-    client = MagicMock()
-    client.myself.return_value = {
-        "displayName": "Test User",
-        "emailAddress": "test@example.com",
-    }
-    client.issue.return_value = {
-        "key": "TEST-123",
-        "fields": {
-            "summary": "Test issue",
-            "status": {"name": "Open"},
-            "issuetype": {"name": "Bug"},
-            "priority": {"name": "High"},
-            "assignee": {"displayName": "Test User"},
-            "description": "Test description",
-        },
-    }
-    client.jql.return_value = {
-        "issues": [
-            {
-                "key": "TEST-1",
-                "fields": {
-                    "summary": "First issue",
-                    "status": {"name": "Open"},
-                    "priority": {"name": "High"},
-                },
-            },
-            {
-                "key": "TEST-2",
-                "fields": {
-                    "summary": "Second issue",
-                    "status": {"name": "In Progress"},
-                    "priority": {"name": "Medium"},
-                },
-            },
-        ]
-    }
-    client.get_issue_transitions.return_value = [
-        {"id": "11", "name": "Start Progress", "to": "In Progress"},
-        {"id": "21", "name": "Close", "to": "Done"},
-    ]
-    return client
 
 
 @pytest.fixture
