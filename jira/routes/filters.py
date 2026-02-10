@@ -22,10 +22,7 @@ async def list_filters(
 ):
     """List your favorite filters."""
     try:
-        endpoint = "rest/api/2/filter/favourite"
-        response = client._session.get(f"{client.url}/{endpoint}")
-        response.raise_for_status()
-        filters = response.json()
+        filters = client.get("rest/api/2/filter/favourite")
         return formatted(filters, format, "filters")
     except HTTPError as e:
         if is_status(e, 404):

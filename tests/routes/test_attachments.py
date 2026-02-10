@@ -72,26 +72,47 @@ class TestAttachmentHelp:
 class TestUploadAttachment:
     """Test /attachment/{key} POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
-    def test_upload_attachment(self):
-        """Should upload attachment to issue."""
-        import base64
-        content = base64.b64encode(b"test content").decode()
-        result = run_cli("jira", "attachment", TEST_ISSUE,
-                        "--filename", "test.txt", "--content", content)
-        # Should return attachment info
-        data = get_data(result)
-        assert "id" in data or isinstance(data, list)
+
+    def test_upload_attachment_multipart(self):
+        """Should upload attachment using multipart form-data."""
+        import tempfile
+        import os
+
+        # Create a temporary test file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("Test content for attachment upload")
+            temp_file = f.name
+
+        attachment_id = None
+        try:
+            # Upload file using --file parameter
+            result = run_cli("jira", "attachment", TEST_ISSUE, "--file", temp_file)
+            data = get_data(result)
+
+            # Should return attachment list with ID and original filename
+            assert isinstance(data, list) and len(data) > 0
+            attachment = data[0]
+            assert "id" in attachment
+            assert "filename" in attachment
+            attachment_id = attachment["id"]
+        finally:
+            # Clean up: remove temp file and delete attachment from Jira
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
+            if attachment_id:
+                run_cli("jira", "attachment/delete", attachment_id, expect_success=False)
 
 
 class TestDeleteAttachment:
     """Test /attachment/{attachment_id} DELETE endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_delete_attachment(self):
         """Should delete attachment by ID."""
-        # Would need to know an attachment ID
-        pass
+        result = run_cli("jira", "attachment", "10200", "-X", "DELETE")
+        data = get_data(result)
+        assert data.get("deleted") is True
+        assert data.get("attachment_id") == "10200"
 
     def test_delete_nonexistent_attachment(self):
         """Should handle deleting non-existent attachment."""

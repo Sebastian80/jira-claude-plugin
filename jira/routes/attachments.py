@@ -7,21 +7,13 @@ Endpoints:
 - DELETE /attachment/{attachment_id} - Delete attachment
 """
 
-import base64
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from requests import HTTPError
 
 from ..deps import jira
 from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
-
-
-class UploadAttachmentBody(BaseModel):
-    filename: str
-    content: str
 
 
 @router.get("/attachments/{key}")
@@ -44,21 +36,26 @@ async def list_attachments(
 
 
 @router.post("/attachment/{key}")
-async def upload_attachment(key: str, body: UploadAttachmentBody, client=Depends(jira)):
-    """Upload attachment to issue."""
+async def upload_attachment(
+    key: str,
+    file: UploadFile = File(...),
+    client=Depends(jira)
+):
+    """Upload attachment to issue using multipart form-data."""
     try:
-        try:
-            file_data = base64.b64decode(body.content)
-        except Exception:
-            return error("Failed to decode base64 content")
-
-        result = client.add_attachment(issue_key=key, filename=body.filename, attachment=file_data)
+        # Wrap in BytesIO to set .name for the multipart Content-Disposition header
+        # (SpooledTemporaryFile.name is read-only)
+        import io
+        content = file.file.read()
+        upload = io.BytesIO(content)
+        upload.name = file.filename
+        result = client.add_attachment_object(issue_key=key, attachment=upload)
         return success(result)
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Issue {key} not found")
+            return error(f"Issue {key} not found", status=404)
         if is_status(e, 403):
-            return error("Permission denied")
+            return error("Permission denied", status=403)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

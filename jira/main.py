@@ -19,7 +19,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .deps import init_client, is_healthy, get_error, reset
+from . import __version__
+from .deps import init_client, check_health, reset
 from .routes import create_router
 
 # Routes that require a path parameter - used for helpful 404 messages
@@ -71,7 +72,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Jira CLI API",
     description="Standalone Jira CLI server for Claude Code",
-    version="2.0.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -80,16 +81,15 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    healthy = is_healthy()
-    err = get_error()
+    result = check_health()
 
-    if healthy:
+    if result["healthy"]:
         return {"status": "healthy", "service": "jira"}
     else:
         return {
             "status": "unhealthy",
             "service": "jira",
-            "error": err,
+            "error": result.get("error"),
         }
 
 
@@ -97,7 +97,7 @@ async def health():
 async def root():
     """Root endpoint - show basic info."""
     return PlainTextResponse(
-        "Jira CLI Server v2.0.0\n"
+        f"Jira CLI Server v{__version__}\n"
         "Use /jira/help for available commands\n"
         "Use /health for status\n"
     )

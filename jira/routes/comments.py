@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, get_status_code, is_status
+from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -49,7 +49,7 @@ async def list_comments(
         return formatted(list(reversed(comments))[:limit], format, "comments")
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Issue {key} not found", status=404)
+            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

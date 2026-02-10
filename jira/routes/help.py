@@ -139,7 +139,11 @@ def condense_endpoint(path: str, method: str, spec: dict[str, Any], openapi: dic
     # Condense requestBody parameters (Pydantic models)
     request_body = spec.get("requestBody", {})
     if request_body:
-        body_schema = request_body.get("content", {}).get("application/json", {}).get("schema", {})
+        content = request_body.get("content", {})
+        # Try application/json first, then multipart/form-data (for file uploads)
+        body_schema = content.get("application/json", {}).get("schema", {})
+        if not body_schema:
+            body_schema = content.get("multipart/form-data", {}).get("schema", {})
         if body_schema:
             condensed_params.extend(condense_body_schema(body_schema, openapi))
 

@@ -65,5 +65,5 @@ async def do_transition(key: str, body: TransitionBody, client=Depends(jira)):
     except Exception as e:
         error_msg = str(e)
         if "path" in error_msg.lower() or "reachable" in error_msg.lower():
-            return error(f"No path to '{target}'", hint="Use 'jira transitions ISSUE' to see available states")
+            return error(f"No path to '{body.target}'", hint="Use 'jira transitions ISSUE' to see available states")
         raise HTTPException(status_code=500, detail=error_msg)

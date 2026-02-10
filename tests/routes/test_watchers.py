@@ -76,7 +76,7 @@ class TestWatcherHelp:
 class TestAddWatcher:
     """Test /watcher/{key} POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_add_watcher(self):
         """Should add watcher to issue."""
         result = run_cli("jira", "watcher", TEST_ISSUE, "--username", "test.user")
@@ -87,10 +87,13 @@ class TestAddWatcher:
 class TestRemoveWatcher:
     """Test /watcher/{key}/{username} DELETE endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_remove_watcher(self):
         """Should remove watcher from issue."""
-        pass
+        result = run_cli("jira", "watcher", TEST_ISSUE, "test.user", "-X", "DELETE")
+        data = get_data(result)
+        assert data.get("removed") is True
+        assert data.get("username") == "test.user"
 
 
 class TestWatcherEdgeCases:

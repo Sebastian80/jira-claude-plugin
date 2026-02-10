@@ -47,7 +47,8 @@ def get_jira_client(env_file: Optional[str] = None) -> Jira:
             client = Jira(
                 url=url,
                 token=config['JIRA_PERSONAL_TOKEN'],
-                cloud=is_cloud
+                cloud=is_cloud,
+                timeout=30,
             )
         else:
             # Cloud with username + API token
@@ -55,7 +56,8 @@ def get_jira_client(env_file: Optional[str] = None) -> Jira:
                 url=url,
                 username=config['JIRA_USERNAME'],
                 password=config['JIRA_API_TOKEN'],
-                cloud=is_cloud
+                cloud=is_cloud,
+                timeout=30,
             )
         return client
     except Exception as e:

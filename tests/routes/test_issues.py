@@ -81,7 +81,6 @@ class TestIssueHelp:
 class TestCreateIssue:
     """Test /create endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
     def test_create_issue(self):
         """Should create a new issue."""
         result = run_cli("jira", "create",

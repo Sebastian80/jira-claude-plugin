@@ -91,14 +91,14 @@ class TestWorklogHelp:
 class TestAddWorklog:
     """Test /worklog/{key} POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_add_worklog(self):
         """Should add worklog to issue."""
         result = run_cli("jira", "worklog", TEST_ISSUE, "--timeSpent", "1h")
         data = get_data(result)
         assert "id" in data or data.get("success") is True
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_add_worklog_with_comment(self):
         """Should add worklog with comment."""
         result = run_cli("jira", "worklog", TEST_ISSUE,

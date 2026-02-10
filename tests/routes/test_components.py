@@ -106,12 +106,13 @@ class TestComponentHelp:
 class TestCreateComponent:
     """Test /component POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_create_component(self):
         """Should create a new component."""
         result = run_cli("jira", "component",
                         "--project", TEST_PROJECT,
-                        "--name", "[TEST] Auto-generated component")
+                        "--name", "[TEST] Auto-generated component",
+                        "-X", "POST")
         data = get_data(result)
         assert "id" in data or data.get("success") is True
 
@@ -119,10 +120,13 @@ class TestCreateComponent:
 class TestDeleteComponent:
     """Test /component/{component_id} DELETE endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_delete_component(self):
         """Should delete a component."""
-        pass
+        result = run_cli("jira", "component", "10500", "-X", "DELETE")
+        data = get_data(result)
+        assert data.get("deleted") is True
+        assert data.get("component_id") == "10500"
 
 
 class TestComponentEdgeCases:

@@ -4,6 +4,7 @@ Base formatter classes and utilities.
 Provides base classes, registry, and shared utilities for all Jira formatters.
 """
 
+import functools
 import json
 import os
 from io import StringIO
@@ -144,6 +145,7 @@ formatter_registry = FormatterRegistry()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@functools.lru_cache(maxsize=1)
 def _get_jira_url() -> str:
     """Get Jira base URL from environment or config file."""
     # Try environment first

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jira-cli"
-version = "2.1.0"
+version = "2.7.1"
 description = "Standalone Jira CLI for Claude Code"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,6 +15,7 @@ dependencies = [
     "atlassian-python-api>=3.41",
     "rich>=13.0",
     "pydantic>=2.0",
+    "python-multipart>=0.0.22",
 ]
 
 [project.scripts]
@@ -22,3 +23,8 @@ jira-server = "jira.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["jira"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

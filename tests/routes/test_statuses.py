@@ -85,12 +85,11 @@ class TestGetStatus:
         else:
             pytest.skip("No statuses found")
 
-    @pytest.mark.skip(reason="'status' is a reserved CLI command for server status, not API endpoint")
     def test_get_status_not_found(self):
         """Should handle non-existent status gracefully."""
-        # Note: 'jira status' is a CLI command that shows server status.
-        # To test /jira/status/{name} endpoint, use curl directly.
-        pass
+        stdout, stderr, code = run_cli_raw("jira", "status", "NONEXISTENT_STATUS")
+        stdout_lower = stdout.lower()
+        assert ("not found" in stdout_lower or "error" in stdout_lower or code != 0)
 
     def test_get_status_json_format(self):
         """Should return JSON format for status."""
@@ -104,7 +103,6 @@ class TestGetStatus:
                 # May return status dict or error
                 assert isinstance(status, (dict, str))
 
-    @pytest.mark.skip(reason="get_status_by_name not implemented in atlassian-python-api")
     def test_get_status_rich_format(self):
         """Should format status for rich output."""
         result = run_cli("jira", "statuses")

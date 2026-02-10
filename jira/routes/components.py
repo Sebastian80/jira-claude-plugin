@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, get_status_code, is_status
+from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -37,7 +37,7 @@ async def list_components(
         return formatted(components, format, "components")
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Project '{project}' not found", status=404)
+            return formatted_error(f"Project '{project}' not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -57,9 +57,9 @@ async def create_component(body: CreateComponentBody, client=Depends(jira)):
         return success(result)
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Project '{body.project}' not found")
+            return error(f"Project '{body.project}' not found", status=404)
         if is_status(e, 409):
-            return error(f"Component '{body.name}' already exists in {body.project}")
+            return error(f"Component '{body.name}' already exists in {body.project}", status=409)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -77,7 +77,7 @@ async def get_component(
         return formatted(component, format, "component")
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Component '{component_id}' not found", status=404)
+            return formatted_error(f"Component '{component_id}' not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

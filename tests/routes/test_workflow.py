@@ -65,10 +65,13 @@ class TestTransitionHelp:
 class TestExecuteTransition:
     """Test /transition/{key} POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
     def test_execute_transition(self):
         """Should execute transition on issue."""
-        pass
+        result = run_cli("jira", "transition", TEST_ISSUE, "--target", "In Progress")
+        data = get_data(result)
+        assert data.get("key") == TEST_ISSUE
+        assert data.get("final_state") == "In Progress"
+        assert data.get("steps") >= 1
 
 
 if __name__ == "__main__":

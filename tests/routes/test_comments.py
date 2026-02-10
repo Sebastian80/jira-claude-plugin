@@ -85,7 +85,7 @@ class TestCommentHelp:
 class TestAddComment:
     """Test /comment/{key} POST endpoint."""
 
-    @pytest.mark.write_test
+
     def test_add_comment(self):
         """Should add comment to issue."""
         result = run_cli("jira", "comment", TEST_ISSUE,
@@ -97,7 +97,7 @@ class TestAddComment:
 class TestDeleteComment:
     """Test /comment/{key}/{comment_id} DELETE endpoint."""
 
-    @pytest.mark.write_test
+
     def test_create_and_delete_comment(self):
         """Should create a comment, then delete it."""
         # Create a comment first
@@ -120,7 +120,7 @@ class TestDeleteComment:
         comment_ids = [str(c.get("id")) for c in comments]
         assert comment_id not in comment_ids
 
-    @pytest.mark.write_test
+
     def test_delete_nonexistent_comment(self):
         """Should return 404 for nonexistent comment ID."""
         stdout, stderr, code = run_cli_raw(

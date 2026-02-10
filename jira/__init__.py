@@ -5,4 +5,4 @@ from .formatters import register_jira_formatters
 # Register formatters on import
 register_jira_formatters()
 
-__version__ = "2.0.0"
+__version__ = "2.7.1"

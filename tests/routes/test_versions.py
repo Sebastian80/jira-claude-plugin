@@ -109,12 +109,12 @@ class TestVersionHelp:
 class TestCreateVersion:
     """Test /version POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
     def test_create_version(self):
         """Should create a new version."""
         result = run_cli("jira", "version",
                         "--project", TEST_PROJECT,
-                        "--name", "[TEST] Auto-generated version")
+                        "--name", "[TEST] Auto-generated version",
+                        "-X", "POST")
         data = get_data(result)
         assert "id" in data or data.get("success") is True
 
@@ -122,10 +122,12 @@ class TestCreateVersion:
 class TestUpdateVersion:
     """Test /version/{version_id} PATCH endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
     def test_update_version(self):
         """Should update a version."""
-        pass
+        result = run_cli("jira", "version", "10600", "-X", "PATCH",
+                        "--name", "Updated Version")
+        data = get_data(result)
+        assert "id" in data
 
 
 class TestVersionEdgeCases:

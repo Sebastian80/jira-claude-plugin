@@ -13,6 +13,7 @@ PLUGIN_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT))
 
 
+
 @pytest.fixture
 def mock_jira_client():
     """Create a mock Jira client."""

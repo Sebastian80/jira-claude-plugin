@@ -80,7 +80,17 @@ class JiraIssueRichFormatter(RichFormatter):
             return self._format_issue(data)
         return super().format(data)
 
-    def _format_issue(self, issue: dict) -> str:
+    def _build_issue_parts(self, issue: dict, desc_limit: int = 800, include_labels: bool = True) -> tuple[list, Text]:
+        """Build issue renderables and panel title.
+
+        Args:
+            issue: Jira issue dict
+            desc_limit: Max description characters
+            include_labels: Whether to show labels row
+
+        Returns:
+            Tuple of (parts list, title Text)
+        """
         f = issue.get("fields", {}) or {}
         key = issue.get("key", "?")
         type_name = f.get("issuetype", {}).get("name", "?") if f.get("issuetype") else "?"
@@ -92,57 +102,55 @@ class JiraIssueRichFormatter(RichFormatter):
         status_icon, status_style = get_status_style(status_name)
         priority_icon, priority_style = get_priority_style(priority_name)
 
-        # Build content with summary
         parts = []
 
         # Summary
         parts.append(Text(summary, style="bold"))
-        parts.append(Text(""))  # Blank line
+        parts.append(Text(""))
 
         # Metadata grid
         meta = Table(show_header=False, box=None, padding=(0, 2), expand=False)
         meta.add_column("Field", style="bold dim", width=10)
         meta.add_column("Value")
 
-        # Status with icon and color
         status_text = Text(f"{status_icon} {status_name}", style=status_style)
         meta.add_row("Status", status_text)
 
-        # Priority with icon
         if priority_name:
             priority_text = Text(f"{priority_icon} {priority_name}", style=priority_style)
             meta.add_row("Priority", priority_text)
 
-        # Assignee
         if f.get("assignee"):
             meta.add_row("Assignee", Text(f["assignee"].get("displayName", "?"), style="cyan"))
 
-        # Reporter
         if f.get("reporter"):
             meta.add_row("Reporter", Text(f["reporter"].get("displayName", "?"), style="dim"))
 
-        # Labels
-        if f.get("labels"):
+        if include_labels and f.get("labels"):
             meta.add_row("Labels", Text(", ".join(f["labels"][:5]), style="magenta"))
 
         parts.append(meta)
 
-        # Add description if present
+        # Description
         if f.get("description"):
-            parts.append(Text(""))  # Blank line
+            parts.append(Text(""))
             parts.append(Text("Description", style="bold dim"))
-            desc = f["description"][:800]
-            if len(f["description"]) > 800:
+            desc = f["description"][:desc_limit]
+            if len(f["description"]) > desc_limit:
                 desc += "..."
-            # Convert Jira wiki markup to styled text
             parts.append(convert_jira_markup(desc))
 
-        # Create panel with title (clickable issue key via Rich Text)
+        # Panel title
         title = Text.assemble(
             (f"{type_icon}  ", ""),
             make_issue_link(key),
             (f"  {type_name}", "dim"),
         )
+
+        return parts, title
+
+    def _format_issue(self, issue: dict) -> str:
+        parts, title = self._build_issue_parts(issue)
 
         panel = Panel(
             Group(*parts),
@@ -175,7 +183,16 @@ class JiraIssueAIFormatter(AIFormatter):
             return self._format_issue(data)
         return super().format(data)
 
-    def _format_issue(self, issue: dict) -> str:
+    def _build_issue_lines(self, issue: dict, desc_limit: int = 600) -> list[str]:
+        """Build core issue lines for AI output.
+
+        Args:
+            issue: Jira issue dict
+            desc_limit: Max description characters
+
+        Returns:
+            List of formatted lines
+        """
         f = issue.get("fields", {}) or {}
         lines = [
             f"ISSUE: {issue.get('key')}",
@@ -187,7 +204,11 @@ class JiraIssueAIFormatter(AIFormatter):
         if f.get("assignee"):
             lines.append(f"assignee: {_get_nested(f, 'assignee', 'displayName')}")
         if f.get("description"):
-            lines.append(f"description: {f['description'][:600]}")
+            lines.append(f"description: {f['description'][:desc_limit]}")
+        return lines
+
+    def _format_issue(self, issue: dict) -> str:
+        lines = self._build_issue_lines(issue)
 
         # Handle expanded changelog
         if issue.get("changelog"):
@@ -195,7 +216,6 @@ class JiraIssueAIFormatter(AIFormatter):
             histories = changelog.get("histories", [])
             if histories:
                 lines.append(f"changelog_entries: {len(histories)}")
-                # Show last 3 changes
                 for h in histories[:3]:
                     author = h.get("author", {}).get("displayName", "?")
                     created = h.get("created") or "?"
@@ -231,7 +251,16 @@ class JiraIssueMarkdownFormatter(MarkdownFormatter):
             return self._format_issue(data)
         return super().format(data)
 
-    def _format_issue(self, issue: dict) -> str:
+    def _build_issue_lines(self, issue: dict, desc_limit: int = 600) -> list[str]:
+        """Build core issue lines for Markdown output.
+
+        Args:
+            issue: Jira issue dict
+            desc_limit: Max description characters
+
+        Returns:
+            List of formatted lines
+        """
         f = issue.get("fields", {}) or {}
         lines = [
             f"## {issue.get('key')}: {f.get('summary') or '?'}",
@@ -245,5 +274,8 @@ class JiraIssueMarkdownFormatter(MarkdownFormatter):
         if f.get("assignee"):
             lines.append(f"| Assignee | {_get_nested(f, 'assignee', 'displayName')} |")
         if f.get("description"):
-            lines.extend(["", "### Description", "", f.get("description", "")[:600]])
-        return "\n".join(lines)
+            lines.extend(["", "### Description", "", f.get("description", "")[:desc_limit]])
+        return lines
+
+    def _format_issue(self, issue: dict) -> str:
+        return "\n".join(self._build_issue_lines(issue))

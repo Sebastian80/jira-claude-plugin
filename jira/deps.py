@@ -33,21 +33,11 @@ def jira():
         )
 
 
-def is_healthy() -> bool:
-    """Check if Jira connection works."""
+def check_health() -> dict:
+    """Check Jira connection health in a single API call."""
     try:
         client = get_jira_client()
         client.myself()
-        return True
-    except Exception:
-        return False
-
-
-def get_error() -> str | None:
-    """Get connection error if any."""
-    try:
-        client = get_jira_client()
-        client.myself()
-        return None
+        return {"healthy": True}
     except Exception as e:
-        return str(e)
+        return {"healthy": False, "error": str(e)}

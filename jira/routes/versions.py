@@ -13,7 +13,7 @@ from pydantic import BaseModel, model_validator
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, get_status_code, is_status
+from ..response import success, error, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -49,7 +49,7 @@ async def list_versions(
         return formatted(versions, format, "versions")
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Project '{project}' not found", status=404)
+            return formatted_error(f"Project '{project}' not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -65,9 +65,9 @@ async def create_version(body: CreateVersionBody, client=Depends(jira)):
         return success(result)
     except HTTPError as e:
         if is_status(e, 404):
-            return error(f"Project '{body.project}' not found")
+            return error(f"Project '{body.project}' not found", status=404)
         if is_status(e, 409):
-            return error(f"Version '{body.name}' already exists in {body.project}")
+            return error(f"Version '{body.name}' already exists in {body.project}", status=409)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,7 +85,7 @@ async def get_version(
         return formatted(version, format, "version")
     except HTTPError as e:
         if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Version '{version_id}' not found")
+            return formatted_error(f"Version '{version_id}' not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -103,7 +103,7 @@ async def update_version(version_id: str, body: UpdateVersionBody, client=Depend
         if is_status(e, 404):
             return error(f"Version '{version_id}' not found", status=404)
         if is_status(e, 409):
-            return error(f"Version name '{body.name}' already exists")
+            return error(f"Version name '{body.name}' already exists", status=409)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, formatted, get_status_code, is_status
+from ..response import success, formatted, formatted_error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -47,7 +47,7 @@ async def get_issue_links(
         return formatted(links, format, "links")
     except HTTPError as e:
         if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Issue {key} not found")
+            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -82,11 +82,14 @@ async def create_link(body: CreateLinkBody, client=Depends(jira)):
 
 
 @router.get("/link/types")
-async def list_link_types(client=Depends(jira)):
+async def list_link_types(
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    client=Depends(jira),
+):
     """List available issue link types."""
     try:
         types = client.get_issue_link_types()
-        return success(types)
+        return formatted(types, format, "linktypes")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -97,10 +100,7 @@ async def add_weblink(key: str, body: AddWeblinkBody, client=Depends(jira)):
     link_title = body.title or body.url
     try:
         link_object = {"url": body.url, "title": link_title}
-        endpoint = f"rest/api/2/issue/{key}/remotelink"
-        response = client._session.post(f"{client.url}/{endpoint}", json={"object": link_object})
-        response.raise_for_status()
-        result = response.json()
+        result = client.post(f"rest/api/2/issue/{key}/remotelink", json={"object": link_object})
         return success({"key": key, "url": body.url, "title": link_title, "id": result.get("id")})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -114,14 +114,11 @@ async def list_weblinks(
 ):
     """List web links on issue."""
     try:
-        endpoint = f"rest/api/2/issue/{key}/remotelink"
-        response = client._session.get(f"{client.url}/{endpoint}")
-        response.raise_for_status()
-        links = response.json()
+        links = client.get(f"rest/api/2/issue/{key}/remotelink")
         return formatted(links, format, "weblinks")
     except HTTPError as e:
         if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Issue {key} not found")
+            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -131,9 +128,7 @@ async def list_weblinks(
 async def remove_weblink(key: str, link_id: str, client=Depends(jira)):
     """Remove web link from issue."""
     try:
-        endpoint = f"rest/api/2/issue/{key}/remotelink/{link_id}"
-        response = client._session.delete(f"{client.url}/{endpoint}")
-        response.raise_for_status()
+        client.delete(f"rest/api/2/issue/{key}/remotelink/{link_id}")
         return success({"key": key, "link_id": link_id, "removed": True})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -159,19 +159,27 @@ class TestLinkHelp:
 class TestCreateLink:
     """Test /link POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_create_link(self):
         """Should create issue link."""
-        pass
+        result = run_cli("jira", "link",
+                        "--from", TEST_ISSUE, "--to", "HMKG-2063", "--type", "Blocks")
+        data = get_data(result)
+        assert data.get("from") == TEST_ISSUE
+        assert data.get("type") == "Blocks"
 
 
 class TestCreateWebLink:
     """Test /weblink/{key} POST endpoint."""
 
-    @pytest.mark.skip(reason="Write test - run manually with --run-write-tests")
+
     def test_create_weblink(self):
         """Should create web link on issue."""
-        pass
+        result = run_cli("jira", "weblink", TEST_ISSUE,
+                        "--url", "https://example.com", "--title", "Example")
+        data = get_data(result)
+        assert data.get("key") == TEST_ISSUE
+        assert data.get("url") == "https://example.com"
 
 
 if __name__ == "__main__":
