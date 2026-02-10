@@ -37,6 +37,7 @@ formatters/
 ├── __init__.py      # Registry, exports, register_jira_formatters()
 ├── base.py          # Base classes, utilities, icons/styles
 ├── issue.py         # Single issue (with linked issues, warnings)
+├── show.py          # Combined issue + comments view (reuses issue helpers)
 ├── search.py        # Search results, bulk fetch results
 ├── transitions.py   # Workflow transitions
 ├── comments.py      # Issue comments
@@ -129,7 +130,7 @@ MISSING: PROJ-999, PROJ-888
 WARNING: Issues not found: PROJ-999, PROJ-888
 ```
 
-## v1.2.0 Features
+## Extended Features
 
 ### Linked Issues Display
 

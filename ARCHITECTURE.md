@@ -359,11 +359,29 @@ formatters/__init__.py
 
 All routes use HTTP status code checking via helpers in `response.py`:
 
+**GET endpoints** (with `format` param) use `formatted_error()` for format-aware error responses:
+
+```python
+from ..response import formatted, formatted_error, get_status_code, is_status
+
+try:
+    data = client.issue(key)
+    return formatted(data, format, "issue")
+except HTTPError as e:
+    if is_status(e, 404):
+        return formatted_error(f"Issue {key} not found", fmt=format, status=404)
+    raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
+except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))
+```
+
+**Write endpoints** (POST/PATCH/DELETE without `format` param) use `error()` with explicit status:
+
 ```python
 from ..response import success, error, get_status_code, is_status
 
 try:
-    result = client.issue(key)
+    client.issue_add_comment(key, body.text)
     return success(result)
 except HTTPError as e:
     if is_status(e, 404):

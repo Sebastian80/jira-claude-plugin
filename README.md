@@ -141,10 +141,7 @@ jira health     # Check Jira connection
 
 ```bash
 # Run tests (from plugin root)
-~/.local/share/jira-cli/.venv/bin/python -m pytest tests/ -v
-
-# Run write tests (creates real data in Jira)
-~/.local/share/jira-cli/.venv/bin/python -m pytest tests/ -v --run-write-tests
+uv run pytest tests/ -v
 
 # Restart server after code changes
 jira restart
