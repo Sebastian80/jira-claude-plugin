@@ -17,11 +17,6 @@ def init_client():
     client.myself()
 
 
-def reset():
-    """Compatibility stub - no-op since we don't maintain state."""
-    pass
-
-
 def jira():
     """FastAPI dependency - get fresh Jira client per request."""
     try:

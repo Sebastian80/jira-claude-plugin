@@ -108,8 +108,9 @@ is_running() {
 
 wait_for_server() {
     local timeout=${1:-10}
+    local max_attempts=$((timeout * 2))
     local count=0
-    while [[ $count -lt $timeout ]]; do
+    while [[ $count -lt $max_attempts ]]; do
         if curl -s "$BASE_URL/health" >/dev/null 2>&1; then
             return 0
         fi

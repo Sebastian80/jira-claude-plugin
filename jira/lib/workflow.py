@@ -401,7 +401,6 @@ def smart_transition(
     client,
     issue_key: str,
     target_state: str,
-    store: WorkflowStore = None,  # Kept for backward compat, now ignored
     add_comment: bool = False,
     dry_run: bool = False,
     verbose: bool = False,

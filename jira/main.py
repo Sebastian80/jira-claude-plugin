@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__
-from .deps import init_client, check_health, reset
+from .deps import init_client, check_health
 from .routes import create_router
 
 # Routes that require a path parameter - used for helpful 404 messages
@@ -65,7 +65,6 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Jira CLI server shutting down...")
-    reset()
 
 
 # Create FastAPI app
