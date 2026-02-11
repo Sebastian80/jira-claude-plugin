@@ -42,8 +42,8 @@ class TestTransitions:
         """Should handle non-existent issue gracefully."""
         stdout, stderr, code = run_cli_raw("transitions", "NONEXISTENT-99999")
         stdout_lower = stdout.lower()
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "detail" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
 
 class TestTransitionHelp:

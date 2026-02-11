@@ -56,16 +56,15 @@ class TestGetIssue:
         """Should handle non-existent issue gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "issue", "NONEXISTENT-99999")
         stdout_lower = stdout.lower()
-        # Handle both English and German error messages
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "detail" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
     def test_get_issue_invalid_key_format(self):
         """Should handle invalid issue key format."""
         stdout, stderr, code = run_cli_raw("jira", "issue", "not-a-valid-key")
         stdout_lower = stdout.lower()
-        assert (code != 0 or "error" in stdout_lower or "not found" in stdout_lower or
-                "existiert nicht" in stdout_lower or "detail" in stdout_lower)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
 
 class TestIssueHelp:

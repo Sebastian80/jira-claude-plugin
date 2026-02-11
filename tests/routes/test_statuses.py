@@ -89,7 +89,8 @@ class TestGetStatus:
         """Should handle non-existent status gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "status", "NONEXISTENT_STATUS")
         stdout_lower = stdout.lower()
-        assert ("not found" in stdout_lower or "error" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
     def test_get_status_json_format(self):
         """Should return JSON format for status."""

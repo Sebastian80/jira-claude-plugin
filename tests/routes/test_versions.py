@@ -56,10 +56,8 @@ class TestListVersions:
         """Should handle non-existent project gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "versions", "NONEXISTENT12345")
         stdout_lower = stdout.lower()
-        # Handle both English and German error messages
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "gefunden" in stdout_lower or
-                "konnte" in stdout_lower or "404" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
 
 class TestGetVersion:
@@ -69,11 +67,8 @@ class TestGetVersion:
         """Should handle non-existent version gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "version", "99999999")
         stdout_lower = stdout.lower()
-        # Handle both English and German error messages, and API errors
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "gefunden" in stdout_lower or
-                "konnte" in stdout_lower or "404" in stdout_lower or
-                "detail" in stdout_lower or "attribute" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
     def test_get_version_with_real_id(self):
         """Should get version details if versions exist."""

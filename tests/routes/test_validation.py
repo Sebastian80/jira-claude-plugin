@@ -34,7 +34,8 @@ class TestErrorHandling:
         """Should handle invalid issue key format."""
         stdout, stderr, code = run_cli_raw("issue", "invalid-key-format")
         stdout_lower = stdout.lower()
-        assert code != 0 or "not found" in stdout_lower or "error" in stdout_lower or "detail" in stdout_lower
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
 
 if __name__ == "__main__":

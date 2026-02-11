@@ -63,12 +63,8 @@ class TestGetFilter:
         """Should handle non-existent filter gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "filter", "99999999")
         stdout_lower = stdout.lower()
-        # Handle both English and German error messages
-        # German: "der ausgewählte filter steht ihnen nicht zur verfügung"
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "gefunden" in stdout_lower or
-                "konnte" in stdout_lower or "404" in stdout_lower or "500" in stdout_lower or
-                "detail" in stdout_lower or "verfügung" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
     def test_get_filter_with_real_id(self):
         """Should get filter details if filters exist."""

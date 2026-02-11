@@ -56,8 +56,8 @@ class TestListWorklogs:
         """Should handle non-existent issue gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "worklogs", "NONEXISTENT-99999")
         stdout_lower = stdout.lower()
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "404" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
 
 class TestGetWorklog:
@@ -67,11 +67,8 @@ class TestGetWorklog:
         """Should handle non-existent worklog gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "worklog", TEST_ISSUE, "99999999")
         stdout_lower = stdout.lower()
-        # Handle both English and German error messages, and API errors
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "gefunden" in stdout_lower or
-                "konnte" in stdout_lower or "404" in stdout_lower or
-                "detail" in stdout_lower or "missing" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower or "not allowed" in stdout_lower
 
 
 class TestWorklogHelp:

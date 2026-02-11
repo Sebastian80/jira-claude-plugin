@@ -100,10 +100,8 @@ class TestGetProject:
         """Should handle non-existent project gracefully."""
         stdout, stderr, code = run_cli_raw("jira", "project", "NONEXISTENT12345")
         stdout_lower = stdout.lower()
-        # Handle both English and German error messages
-        assert ("not found" in stdout_lower or "error" in stdout_lower or
-                "existiert nicht" in stdout_lower or "gefunden" in stdout_lower or
-                "konnte" in stdout_lower or "404" in stdout_lower or code != 0)
+        assert code != 0
+        assert "not found" in stdout_lower or "error" in stdout_lower
 
 
 class TestProjectComponents:
