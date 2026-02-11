@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from ..deps import jira
-from ..response import success, error, jira_error_handler
+from ..response import success, error, formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -28,6 +28,7 @@ class SprintIssuesBody(BaseModel):
 async def list_boards(
     project: str | None = Query(None, description="Filter by project key"),
     board_type: str | None = Query(None, alias="type", description="Filter by type: scrum, kanban"),
+    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all boards."""
@@ -39,7 +40,7 @@ async def list_boards(
 
     # Use raw request to Agile API
     result = client.get("rest/agile/1.0/board", params=params)
-    return success(result.get("values", []))
+    return formatted(result.get("values", []), format, "boards")
 
 
 @router.get("/sprints/{board_id}")
