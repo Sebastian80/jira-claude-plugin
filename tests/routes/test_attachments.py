@@ -72,35 +72,50 @@ class TestAttachmentHelp:
 class TestUploadAttachment:
     """Test /attachment/{key} POST endpoint."""
 
-
-    def test_upload_attachment_multipart(self):
-        """Should upload attachment using multipart form-data."""
+    def test_upload_single_file(self):
+        """Should upload a single file by path."""
         import tempfile
         import os
 
-        # Create a temporary test file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
             f.write("Test content for attachment upload")
             temp_file = f.name
 
-        attachment_id = None
         try:
-            # Upload file using --file parameter
             result = run_cli("jira", "attachment", TEST_ISSUE, "--file", temp_file)
             data = get_data(result)
 
-            # Should return attachment list with ID and original filename
             assert isinstance(data, list) and len(data) > 0
             attachment = data[0]
             assert "id" in attachment
             assert "filename" in attachment
-            attachment_id = attachment["id"]
         finally:
-            # Clean up: remove temp file and delete attachment from Jira
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-            if attachment_id:
-                run_cli("jira", "attachment/delete", attachment_id, expect_success=False)
+            os.unlink(temp_file)
+
+    def test_upload_multiple_files(self):
+        """Should upload multiple files in one call."""
+        import tempfile
+        import os
+
+        files = []
+        for i in range(3):
+            f = tempfile.NamedTemporaryFile(mode='w', suffix=f'_{i}.txt', delete=False)
+            f.write(f"Content {i}")
+            f.close()
+            files.append(f.name)
+
+        try:
+            result = run_cli(
+                "jira", "attachment", TEST_ISSUE,
+                "--file", files[0], "--file", files[1], "--file", files[2],
+            )
+            data = get_data(result)
+
+            assert isinstance(data, list)
+            assert len(data) == 3
+        finally:
+            for f in files:
+                os.unlink(f)
 
 
 class TestDeleteAttachment:
@@ -139,18 +154,27 @@ class TestUploadSizeLimit:
     """Test that oversized uploads are rejected."""
 
     def test_upload_over_50mb_returns_413(self):
-        """Bug 4.3: uploads over 50MB should be rejected with 413."""
-        import io as _io
+        """Uploads over 50MB should be rejected with 413."""
+        import tempfile
+        import os
         from helpers import _test_client
-        # Create a fake file just over the limit (50MB + 1 byte)
-        oversized = _io.BytesIO(b"\x00" * (50 * 1024 * 1024 + 1))
-        response = _test_client.post(
-            "/jira/attachment/HMKG-2062",
-            files={"file": ("big.bin", oversized, "application/octet-stream")},
-        )
-        assert response.status_code == 413
-        data = response.json()
-        assert data["success"] is False
+
+        # Create a sparse file just over the limit (50MB + 1 byte)
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.seek(50 * 1024 * 1024)
+            f.write(b"\x00")
+            temp_file = f.name
+
+        try:
+            response = _test_client.post(
+                "/jira/attachment/HMKG-2062",
+                json={"files": [temp_file]},
+            )
+            assert response.status_code == 413
+            data = response.json()
+            assert data["success"] is False
+        finally:
+            os.unlink(temp_file)
 
 
 class TestAttachmentEdgeCases:
