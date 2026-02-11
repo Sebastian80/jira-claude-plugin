@@ -203,10 +203,15 @@ route_request() {
     local path_args=()
     local query_params=()
     local method_override=""
+    local file_paths=()
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --file)
+                file_paths+=("$2")
+                shift
+                ;;
             --*)
                 # Query parameter: --key value or --key=value
                 local key="${1#--}"
@@ -254,7 +259,29 @@ route_request() {
     local curl_args=(-s -w "\n%{http_code}")
     local query_string=""
 
-    if [[ "$method" == "POST" || "$method" == "PATCH" ]] && [[ ${#query_params[@]} -gt 0 ]]; then
+    # File upload: send file paths as JSON body
+    if [[ ${#file_paths[@]} -gt 0 ]]; then
+        # Extract format param for query string
+        for param in "${query_params[@]}"; do
+            local key="${param%%=*}"
+            local value="${param#*=}"
+            if [[ "$key" == "format" ]]; then
+                local encoded_value
+                encoded_value=$(urlencode "$value")
+                query_string="${key}=${encoded_value}"
+            fi
+        done
+        if [[ -n "$query_string" ]]; then
+            url="${url}?${query_string}"
+        fi
+        # Resolve to absolute paths and build JSON body
+        local json_body
+        json_body=$(python3 -c "
+import json, sys, os
+print(json.dumps({'files': [os.path.abspath(f) for f in sys.argv[1:]]}))
+" "${file_paths[@]}")
+        curl_args+=(-X POST -H "Content-Type: application/json" -d "$json_body")
+    elif [[ "$method" == "POST" || "$method" == "PATCH" ]] && [[ ${#query_params[@]} -gt 0 ]]; then
         local body_params=()
         for param in "${query_params[@]}"; do
             local key="${param%%=*}"

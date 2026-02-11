@@ -43,6 +43,12 @@ jira comment PROJ-123 --text "Done"          # Add comment
 jira comment PROJ-123 12345 -X DELETE        # Delete comment by ID
 jira worklog PROJ-123 --timeSpent 2h         # Log time
 
+# Attachments
+jira attachments PROJ-123                    # List attachments
+jira attachment PROJ-123 --file report.pdf   # Upload file
+jira attachment PROJ-123 --file a.pdf --file b.png  # Upload multiple
+jira attachment 12345 -X DELETE              # Delete attachment
+
 # Help
 jira help                                    # Full command list
 jira help search                             # Command-specific help

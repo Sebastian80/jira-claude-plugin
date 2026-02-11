@@ -6,7 +6,6 @@ without subprocess calls or a running server.
 """
 
 import json
-import io
 from pathlib import Path
 from urllib.parse import quote
 
@@ -91,7 +90,7 @@ def _parse_cli_args(args: list[str]) -> dict:
     - First arg is endpoint
     - Positional args become path segments
     - --key value becomes query or body params
-    - --file path becomes multipart upload
+    - --file path(s) become file upload body
     - -X METHOD overrides HTTP method
     """
     args = list(args)
@@ -101,7 +100,7 @@ def _parse_cli_args(args: list[str]) -> dict:
         args = args[1:]
 
     if not args:
-        return {"endpoint": "help", "path_args": [], "params": {}, "method_override": None, "file_path": None}
+        return {"endpoint": "help", "path_args": [], "params": {}, "method_override": None, "file_paths": []}
 
     endpoint = args[0]
     remaining = args[1:]
@@ -109,14 +108,14 @@ def _parse_cli_args(args: list[str]) -> dict:
     path_args = []
     params = {}
     method_override = None
-    file_path = None
+    file_paths = []
 
     i = 0
     while i < len(remaining):
         arg = remaining[i]
         if arg == "--file":
             if i + 1 < len(remaining):
-                file_path = remaining[i + 1]
+                file_paths.append(remaining[i + 1])
                 i += 2
             else:
                 i += 1
@@ -147,20 +146,20 @@ def _parse_cli_args(args: list[str]) -> dict:
         "path_args": path_args,
         "params": params,
         "method_override": method_override,
-        "file_path": file_path,
+        "file_paths": file_paths,
     }
 
 
-def _build_request(parsed: dict) -> tuple[str, str, dict | None, dict | None, dict | None]:
+def _build_request(parsed: dict) -> tuple[str, str, dict | None, dict | None]:
     """Build HTTP request from parsed CLI args.
 
-    Returns: (method, url, query_params, json_body, files)
+    Returns: (method, url, query_params, json_body)
     """
     endpoint = parsed["endpoint"]
     path_args = parsed["path_args"]
     params = parsed["params"]
     method_override = parsed["method_override"]
-    file_path = parsed["file_path"]
+    file_paths = parsed["file_paths"]
 
     # Handle help command: route to /jira/help/...
     if endpoint in ("help", "--help", "-h"):
@@ -168,7 +167,7 @@ def _build_request(parsed: dict) -> tuple[str, str, dict | None, dict | None, di
         for arg in path_args:
             url += f"/{quote(arg, safe='')}"
         query_params = {k: v for k, v in params.items()}
-        return "GET", url, query_params, None, None
+        return "GET", url, query_params, None
 
     # Resolve endpoint alias
     actual_endpoint = _ENDPOINT_ALIASES.get(endpoint, endpoint)
@@ -191,32 +190,26 @@ def _build_request(parsed: dict) -> tuple[str, str, dict | None, dict | None, di
             else:
                 body_params[key] = value
 
-        if file_path:
-            # Multipart file upload
-            return method, url, query_params, None, {"file_path": file_path}
+        if file_paths:
+            # File upload via local paths
+            return method, url, query_params, {"files": file_paths}
         elif body_params:
-            return method, url, query_params, body_params, None
+            return method, url, query_params, body_params
         else:
-            return method, url, query_params, None, None
+            return method, url, query_params, None
     else:
         # GET/DELETE: all params as query string
-        return method, url, params, None, None
+        return method, url, params, None
 
 
 def _execute_request(method: str, url: str, query_params: dict | None = None,
-                     json_body: dict | None = None, files: dict | None = None):
+                     json_body: dict | None = None):
     """Execute HTTP request via TestClient."""
     kwargs = {}
     if query_params:
         kwargs["params"] = query_params
     if json_body:
         kwargs["json"] = json_body
-
-    if files and files.get("file_path"):
-        fp = files["file_path"]
-        file_content = Path(fp).read_bytes() if Path(fp).exists() else b"mock file content"
-        filename = Path(fp).name
-        kwargs["files"] = {"file": (filename, io.BytesIO(file_content), "application/octet-stream")}
 
     if method == "GET":
         return _test_client.get(url, **kwargs)
@@ -265,8 +258,8 @@ def run_cli(*args, expect_success=True) -> dict | list | str:
         args_list.extend(["--format", "json"])
 
     parsed = _parse_cli_args(args_list)
-    method, url, query_params, json_body, files = _build_request(parsed)
-    response = _execute_request(method, url, query_params, json_body, files)
+    method, url, query_params, json_body = _build_request(parsed)
+    response = _execute_request(method, url, query_params, json_body)
 
     output = response.text.strip()
 
@@ -324,8 +317,8 @@ def run_cli_raw(*args) -> tuple[str, str, int]:
             args_list.extend(["--format", "json"])
 
     parsed = _parse_cli_args(args_list)
-    method, url, query_params, json_body, files = _build_request(parsed)
-    response = _execute_request(method, url, query_params, json_body, files)
+    method, url, query_params, json_body = _build_request(parsed)
+    response = _execute_request(method, url, query_params, json_body)
 
     stdout = response.text
     stderr = ""

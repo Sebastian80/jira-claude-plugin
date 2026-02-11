@@ -45,7 +45,7 @@ jira help
 | **Comments** | List, add, delete comments |
 | **Time Tracking** | Worklogs with time format validation |
 | **Links** | Issue links, web links |
-| **Attachments** | List, upload, delete attachments |
+| **Attachments** | List, upload (multi-file), delete attachments |
 | **Watchers** | List, add, remove watchers |
 | **Sprints** | Boards, sprints, sprint issue management |
 | **Project Data** | Components, versions, filters, priorities, statuses |

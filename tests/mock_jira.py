@@ -8,6 +8,7 @@ actual route logic rather than MagicMock's permissive auto-attributes.
 
 import json
 from copy import deepcopy
+from pathlib import Path
 
 import requests
 
@@ -223,6 +224,14 @@ class MockJiraClient:
     # Attachments
     # =========================================================================
 
+    def add_attachment(self, issue_key: str, filename: str) -> list:
+        self._call_log.append(("add_attachment", issue_key, filename))
+        if _is_nonexistent(issue_key):
+            raise make_http_error(404, f"Issue {issue_key} not found")
+        result = deepcopy(UPLOADED_ATTACHMENT)
+        result[0]["filename"] = Path(filename).name
+        return result
+
     def add_attachment_object(self, issue_key: str, attachment) -> list:
         self._call_log.append(("add_attachment_object", issue_key, getattr(attachment, "name", None)))
         if _is_nonexistent(issue_key):
@@ -232,8 +241,8 @@ class MockJiraClient:
             result[0]["filename"] = attachment.name
         return result
 
-    def delete_attachment(self, attachment_id: str) -> None:
-        self._call_log.append(("delete_attachment", attachment_id))
+    def remove_attachment(self, attachment_id: str) -> None:
+        self._call_log.append(("remove_attachment", attachment_id))
         if _is_nonexistent(attachment_id):
             raise make_http_error(404, f"Attachment {attachment_id} not found")
         if _is_forbidden(attachment_id):

@@ -3,18 +3,25 @@ Attachment operations.
 
 Endpoints:
 - GET /attachments/{key} - List attachments on issue
-- POST /attachment/{key} - Upload attachment
+- POST /attachment/{key} - Upload attachment(s) by local file path
 - DELETE /attachment/{attachment_id} - Delete attachment
 """
 
-import io
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from ..deps import jira
 from ..response import success, error, formatted, jira_error_handler
 
 router = APIRouter()
+
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+class UploadRequest(BaseModel):
+    files: list[str]
 
 
 @router.get("/attachments/{key}")
@@ -34,29 +41,29 @@ async def list_attachments(
 @jira_error_handler(not_found="Issue {key} not found", forbidden="Permission denied")
 async def upload_attachment(
     key: str,
-    file: UploadFile = File(...),
-    client=Depends(jira)
+    body: UploadRequest,
+    client=Depends(jira),
 ):
-    """Upload attachment to issue using multipart form-data."""
-    MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
-
-    # Wrap in BytesIO to set .name for the multipart Content-Disposition header
-    # (SpooledTemporaryFile.name is read-only)
-    content = file.file.read()
-    if len(content) > MAX_UPLOAD_SIZE:
-        return error(
-            f"File too large ({len(content)} bytes). Maximum upload size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
-            status=413,
-        )
-    upload = io.BytesIO(content)
-    upload.name = file.filename
-    result = client.add_attachment_object(issue_key=key, attachment=upload)
-    return success(result)
+    """Upload attachment(s) to issue from local file paths."""
+    results = []
+    for file_path in body.files:
+        path = Path(file_path)
+        if not path.is_file():
+            return error(f"File not found: {file_path}", status=404)
+        if path.stat().st_size > MAX_UPLOAD_SIZE:
+            return error(
+                f"File too large: {path.name} ({path.stat().st_size} bytes). "
+                f"Maximum upload size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
+                status=413,
+            )
+        result = client.add_attachment(issue_key=key, filename=file_path)
+        results.extend(result)
+    return success(results)
 
 
 @router.delete("/attachment/{attachment_id}")
 @jira_error_handler(not_found="Attachment {attachment_id} not found", forbidden="Permission denied")
 async def delete_attachment(attachment_id: str, client=Depends(jira)):
     """Delete attachment."""
-    client.delete_attachment(attachment_id)
+    client.remove_attachment(attachment_id)
     return success({"attachment_id": attachment_id, "deleted": True})

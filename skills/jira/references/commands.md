@@ -76,10 +76,18 @@ jira weblinks PROJ-123                        # List web/remote links
 jira weblink PROJ-123 --url "https://..." --title "Link title"
 ```
 
-## Attachments & Watchers
+## Attachments
 
 ```bash
 jira attachments PROJ-123                     # List attachments
+jira attachment PROJ-123 --file report.pdf    # Upload single file
+jira attachment PROJ-123 --file a.pdf --file b.png  # Upload multiple files
+jira attachment 12345 -X DELETE               # Delete attachment by ID
+```
+
+## Watchers
+
+```bash
 jira watchers PROJ-123                        # List watchers
 jira watcher PROJ-123 --username john         # Add watcher
 ```
