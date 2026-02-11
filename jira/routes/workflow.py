@@ -8,10 +8,9 @@ Endpoints:
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, get_status_code, is_status
+from ..response import success, error, formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -24,17 +23,15 @@ class TransitionBody(BaseModel):
 
 
 @router.get("/transitions/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
 async def list_transitions(
     key: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List available transitions for an issue."""
-    try:
-        transitions = client.get_issue_transitions(key)
-        return formatted(transitions, format, "transitions")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    transitions = client.get_issue_transitions(key)
+    return formatted(transitions, format, "transitions")
 
 
 @router.post("/transition/{key}")

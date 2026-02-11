@@ -8,12 +8,11 @@ Endpoints:
 - DELETE /component/{component_id} - Delete component
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error, get_status_code, is_status
+from ..response import success, formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -26,72 +25,49 @@ class CreateComponentBody(BaseModel):
 
 
 @router.get("/components/{project}")
+@jira_error_handler(not_found="Project '{project}' not found")
 async def list_components(
     project: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List components in a project."""
-    try:
-        components = client.get_project_components(project)
-        return formatted(components, format, "components")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Project '{project}' not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    components = client.get_project_components(project)
+    return formatted(components, format, "components")
 
 
 @router.post("/component")
+@jira_error_handler(
+    not_found="Project '{project}' not found",
+    conflict="Component '{name}' already exists in {project}",
+)
 async def create_component(body: CreateComponentBody, client=Depends(jira)):
     """Create a component."""
-    try:
-        component = {"name": body.name, "project": body.project}
-        if body.description:
-            component["description"] = body.description
-        if body.lead:
-            component["leadUserName"] = body.lead
+    component = {"name": body.name, "project": body.project}
+    if body.description:
+        component["description"] = body.description
+    if body.lead:
+        component["leadUserName"] = body.lead
 
-        result = client.create_component(component)
-        return success(result)
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Project '{body.project}' not found", status=404)
-        if is_status(e, 409):
-            return error(f"Component '{body.name}' already exists in {body.project}", status=409)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    result = client.create_component(component)
+    return success(result)
 
 
 @router.get("/component/{component_id}")
+@jira_error_handler(not_found="Component '{component_id}' not found")
 async def get_component(
     component_id: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get component details."""
-    try:
-        component = client.component(component_id)
-        return formatted(component, format, "component")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Component '{component_id}' not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    component = client.component(component_id)
+    return formatted(component, format, "component")
 
 
 @router.delete("/component/{component_id}")
+@jira_error_handler(not_found="Component '{component_id}' not found")
 async def delete_component(component_id: str, client=Depends(jira)):
     """Delete a component."""
-    try:
-        client.delete_component(component_id)
-        return success({"deleted": True, "component_id": component_id})
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Component '{component_id}' not found", status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    client.delete_component(component_id)
+    return success({"deleted": True, "component_id": component_id})

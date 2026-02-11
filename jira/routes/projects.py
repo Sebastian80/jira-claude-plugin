@@ -8,16 +8,16 @@ Endpoints:
 - GET /project/{key}/versions - Get project versions
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from requests import HTTPError
+from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted, get_status_code, is_status
+from ..response import formatted, jira_error_handler
 
 router = APIRouter()
 
 
 @router.get("/projects")
+@jira_error_handler()
 async def list_projects(
     include_archived: bool = Query(False, alias="includeArchived", description="Include archived projects"),
     expand: str | None = Query(None, description="Fields to expand"),
@@ -25,35 +25,26 @@ async def list_projects(
     client=Depends(jira),
 ):
     """List all Jira projects."""
-    try:
-        kwargs = {}
-        if include_archived:
-            kwargs["included_archived"] = True
-        if expand:
-            kwargs["expand"] = expand
+    kwargs = {}
+    if include_archived:
+        kwargs["included_archived"] = True
+    if expand:
+        kwargs["expand"] = expand
 
-        projects = client.projects(**kwargs)
-        return formatted(projects, format, "projects")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    projects = client.projects(**kwargs)
+    return formatted(projects, format, "projects")
 
 
 @router.get("/project/{key}")
+@jira_error_handler(not_found="Project {key} not found")
 async def get_project(
     key: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get project details by key."""
-    try:
-        project = client.project(key)
-        return formatted(project, format, "project")
-    except HTTPError as e:
-        if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Project {key} not found")
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    project = client.project(key)
+    return formatted(project, format, "project")
 
 
 @router.get("/project/{key}/components")

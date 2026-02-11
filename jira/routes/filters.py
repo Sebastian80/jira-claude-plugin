@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import formatted, get_status_code, is_status
+from ..response import formatted, get_status_code, is_status, jira_error_handler
 
 router = APIRouter()
 
@@ -33,14 +33,12 @@ async def list_filters(
 
 
 @router.get("/filter/{filter_id}")
+@jira_error_handler()
 async def get_filter(
     filter_id: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get filter details."""
-    try:
-        filter_data = client.get_filter(filter_id)
-        return formatted(filter_data, format, "filter")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    filter_data = client.get_filter(filter_id)
+    return formatted(filter_data, format, "filter")

@@ -13,10 +13,9 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_validator
-from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error, get_status_code, is_status
+from ..response import success, formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -50,6 +49,7 @@ class UpdateIssueBody(BaseModel):
 
 
 @router.get("/issue/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
 async def get_issue(
     key: str,
     fields: str | None = Query(None, description="Comma-separated fields to return"),
@@ -64,18 +64,12 @@ async def get_issue(
     if expand:
         params["expand"] = expand
 
-    try:
-        issue = client.issue(key, **params)
-        return formatted(issue, format, "issue")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    issue = client.issue(key, **params)
+    return formatted(issue, format, "issue")
 
 
 @router.post("/create")
+@jira_error_handler()
 async def create_issue(body: CreateIssueBody, client=Depends(jira)):
     """Create new issue in Jira."""
     issue_fields = {
@@ -103,63 +97,49 @@ async def create_issue(body: CreateIssueBody, client=Depends(jira)):
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
 
-    try:
-        result = client.create_issue(fields=issue_fields)
-        return success(result)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    result = client.create_issue(fields=issue_fields)
+    return success(result)
 
 
 @router.get("/show/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
 async def show_issue(
     key: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get issue with comments combined in one view."""
-    try:
-        # Fetch issue with comment field included
-        issue = client.issue(key, fields="*all,comment")
+    # Fetch issue with comment field included
+    issue = client.issue(key, fields="*all,comment")
 
-        # Extract comments from issue response
-        comments = issue.get("fields", {}).get("comment", {}).get("comments", [])
+    # Extract comments from issue response
+    comments = issue.get("fields", {}).get("comment", {}).get("comments", [])
 
-        # Remove comments from fields to avoid duplication
-        if "fields" in issue and "comment" in issue["fields"]:
-            del issue["fields"]["comment"]
+    # Remove comments from fields to avoid duplication
+    if "fields" in issue and "comment" in issue["fields"]:
+        del issue["fields"]["comment"]
 
-        # Combine into single response
-        combined = {
-            "issue": issue,
-            "comments": list(reversed(comments)),  # Most recent first
-        }
-        return formatted(combined, format, "show")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Combine into single response
+    combined = {
+        "issue": issue,
+        "comments": list(reversed(comments)),  # Most recent first
+    }
+    return formatted(combined, format, "show")
 
 
 @router.delete("/delete/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
 async def delete_issue(
     key: str,
     client=Depends(jira),
 ):
     """Delete an issue permanently."""
-    try:
-        client.delete_issue(key)
-        return success({"key": key, "deleted": True})
-    except HTTPError as e:
-        if is_status(e, 404):
-            raise HTTPException(status_code=404, detail=f"Issue {key} not found")
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    client.delete_issue(key)
+    return success({"key": key, "deleted": True})
 
 
 @router.patch("/issue/{key}")
+@jira_error_handler()
 async def update_issue(key: str, body: UpdateIssueBody, client=Depends(jira)):
     """Update issue fields."""
     update_fields = {}
@@ -184,8 +164,5 @@ async def update_issue(key: str, body: UpdateIssueBody, client=Depends(jira)):
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
 
-    try:
-        client.update_issue_field(key, update_fields)
-        return success({"key": key, "updated": list(update_fields.keys())})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    client.update_issue_field(key, update_fields)
+    return success({"key": key, "updated": list(update_fields.keys())})

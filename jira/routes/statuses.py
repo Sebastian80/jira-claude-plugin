@@ -9,7 +9,7 @@ Endpoints:
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..deps import jira
-from ..response import formatted
+from ..response import formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -46,36 +46,30 @@ def normalize_status_name(name: str) -> list[str]:
 
 
 @router.get("/statuses")
+@jira_error_handler()
 async def list_statuses(
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List all statuses."""
-    try:
-        statuses = client.get_all_statuses()
-        return formatted(statuses, format, "statuses")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    statuses = client.get_all_statuses()
+    return formatted(statuses, format, "statuses")
 
 
 @router.get("/status/{name:path}")
+@jira_error_handler()
 async def get_status(
     name: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get status by name (accepts English or localized names)."""
-    try:
-        all_statuses = client.get_all_statuses()
-        candidates = normalize_status_name(name)
+    all_statuses = client.get_all_statuses()
+    candidates = normalize_status_name(name)
 
-        for status in all_statuses:
-            status_name_lower = status.get("name", "").lower()
-            if status_name_lower in candidates:
-                return formatted(status, format, "status")
+    for status in all_statuses:
+        status_name_lower = status.get("name", "").lower()
+        if status_name_lower in candidates:
+            return formatted(status, format, "status")
 
-        raise HTTPException(status_code=404, detail=f"Status '{name}' not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=404, detail=f"Status '{name}' not found")

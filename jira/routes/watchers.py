@@ -7,12 +7,11 @@ Endpoints:
 - DELETE /watcher/{key}/{username} - Remove watcher from issue
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error, get_status_code, is_status
+from ..response import success, formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -22,50 +21,28 @@ class AddWatcherBody(BaseModel):
 
 
 @router.get("/watchers/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
 async def list_watchers(
     key: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List watchers on issue."""
-    try:
-        watchers = client.issue_get_watchers(key)
-        return formatted(watchers, format, "watchers")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    watchers = client.issue_get_watchers(key)
+    return formatted(watchers, format, "watchers")
 
 
 @router.post("/watcher/{key}")
+@jira_error_handler(not_found="Issue {key} not found", forbidden="Permission denied")
 async def add_watcher(key: str, body: AddWatcherBody, client=Depends(jira)):
     """Add watcher to issue."""
-    try:
-        client.issue_add_watcher(key, body.username)
-        return success({"issue_key": key, "username": body.username, "added": True})
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Issue {key} not found", status=404)
-        if is_status(e, 403):
-            return error("Permission denied", status=403)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    client.issue_add_watcher(key, body.username)
+    return success({"issue_key": key, "username": body.username, "added": True})
 
 
 @router.delete("/watcher/{key}/{username}")
+@jira_error_handler(not_found="Issue {key} or watcher {username} not found", forbidden="Permission denied")
 async def remove_watcher(key: str, username: str, client=Depends(jira)):
     """Remove watcher from issue."""
-    try:
-        client.issue_delete_watcher(key, username)
-        return success({"issue_key": key, "username": username, "removed": True})
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Issue {key} or watcher {username} not found", status=404)
-        if is_status(e, 403):
-            return error("Permission denied", status=403)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    client.issue_delete_watcher(key, username)
+    return success({"issue_key": key, "username": username, "removed": True})

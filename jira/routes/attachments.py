@@ -9,35 +9,29 @@ Endpoints:
 
 import io
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
-from requests import HTTPError
+from fastapi import APIRouter, Depends, Query, UploadFile, File
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error, get_status_code, is_status
+from ..response import success, error, formatted, jira_error_handler
 
 router = APIRouter()
 
 
 @router.get("/attachments/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
 async def list_attachments(
     key: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List attachments on issue."""
-    try:
-        issue = client.issue(key, fields="attachment")
-        attachments = issue.get("fields", {}).get("attachment", [])
-        return formatted(attachments, format, "attachments")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    issue = client.issue(key, fields="attachment")
+    attachments = issue.get("fields", {}).get("attachment", [])
+    return formatted(attachments, format, "attachments")
 
 
 @router.post("/attachment/{key}")
+@jira_error_handler(not_found="Issue {key} not found", forbidden="Permission denied")
 async def upload_attachment(
     key: str,
     file: UploadFile = File(...),
@@ -46,40 +40,23 @@ async def upload_attachment(
     """Upload attachment to issue using multipart form-data."""
     MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 
-    try:
-        # Wrap in BytesIO to set .name for the multipart Content-Disposition header
-        # (SpooledTemporaryFile.name is read-only)
-        content = file.file.read()
-        if len(content) > MAX_UPLOAD_SIZE:
-            return error(
-                f"File too large ({len(content)} bytes). Maximum upload size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
-                status=413,
-            )
-        upload = io.BytesIO(content)
-        upload.name = file.filename
-        result = client.add_attachment_object(issue_key=key, attachment=upload)
-        return success(result)
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Issue {key} not found", status=404)
-        if is_status(e, 403):
-            return error("Permission denied", status=403)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Wrap in BytesIO to set .name for the multipart Content-Disposition header
+    # (SpooledTemporaryFile.name is read-only)
+    content = file.file.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        return error(
+            f"File too large ({len(content)} bytes). Maximum upload size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
+            status=413,
+        )
+    upload = io.BytesIO(content)
+    upload.name = file.filename
+    result = client.add_attachment_object(issue_key=key, attachment=upload)
+    return success(result)
 
 
 @router.delete("/attachment/{attachment_id}")
+@jira_error_handler(not_found="Attachment {attachment_id} not found", forbidden="Permission denied")
 async def delete_attachment(attachment_id: str, client=Depends(jira)):
     """Delete attachment."""
-    try:
-        client.delete_attachment(attachment_id)
-        return success({"attachment_id": attachment_id, "deleted": True})
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Attachment {attachment_id} not found", status=404)
-        if is_status(e, 403):
-            return error("Permission denied", status=403)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    client.delete_attachment(attachment_id)
+    return success({"attachment_id": attachment_id, "deleted": True})

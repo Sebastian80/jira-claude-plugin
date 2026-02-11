@@ -8,12 +8,11 @@ Endpoints:
 - PATCH /version/{version_id} - Update version
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, model_validator
-from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error, formatted, formatted_error, get_status_code, is_status
+from ..response import success, formatted, jira_error_handler
 
 router = APIRouter()
 
@@ -38,72 +37,50 @@ class UpdateVersionBody(BaseModel):
 
 
 @router.get("/versions/{project}")
+@jira_error_handler(not_found="Project '{project}' not found")
 async def list_versions(
     project: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """List versions in a project."""
-    try:
-        versions = client.get_project_versions(project)
-        return formatted(versions, format, "versions")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Project '{project}' not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    versions = client.get_project_versions(project)
+    return formatted(versions, format, "versions")
 
 
 @router.post("/version")
+@jira_error_handler(
+    not_found="Project '{project}' not found",
+    conflict="Version '{name}' already exists in {project}",
+)
 async def create_version(body: CreateVersionBody, client=Depends(jira)):
     """Create a version."""
-    try:
-        result = client.create_version(
-            name=body.name, project=body.project, description=body.description, released=body.released
-        )
-        return success(result)
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Project '{body.project}' not found", status=404)
-        if is_status(e, 409):
-            return error(f"Version '{body.name}' already exists in {body.project}", status=409)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    result = client.create_version(
+        name=body.name, project=body.project, description=body.description, released=body.released
+    )
+    return success(result)
 
 
 @router.get("/version/{version_id}")
+@jira_error_handler(not_found="Version '{version_id}' not found")
 async def get_version(
     version_id: str,
     format: str = Query("json", description="Output format: json, rich, ai, markdown"),
     client=Depends(jira),
 ):
     """Get version details."""
-    try:
-        version = client.get_version(version_id)
-        return formatted(version, format, "version")
-    except HTTPError as e:
-        if is_status(e, 404):
-            return formatted_error(f"Version '{version_id}' not found", fmt=format, status=404)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    version = client.get_version(version_id)
+    return formatted(version, format, "version")
 
 
 @router.patch("/version/{version_id}")
+@jira_error_handler(
+    not_found="Version '{version_id}' not found",
+    conflict="Version name '{name}' already exists",
+)
 async def update_version(version_id: str, body: UpdateVersionBody, client=Depends(jira)):
     """Update a version."""
-    try:
-        result = client.update_version(
-            version_id=version_id, name=body.name, description=body.description, released=body.released
-        )
-        return success(result)
-    except HTTPError as e:
-        if is_status(e, 404):
-            return error(f"Version '{version_id}' not found", status=404)
-        if is_status(e, 409):
-            return error(f"Version name '{body.name}' already exists", status=409)
-        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    result = client.update_version(
+        version_id=version_id, name=body.name, description=body.description, released=body.released
+    )
+    return success(result)
