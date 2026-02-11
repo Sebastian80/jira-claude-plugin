@@ -2,9 +2,7 @@
 
 import importlib.metadata
 
-from .formatters import register_jira_formatters
-
-# Register formatters on import
-register_jira_formatters()
+# Importing formatters triggers decorator-based auto-registration
+import jira.formatters  # noqa: F401
 
 __version__ = importlib.metadata.version("jira-cli")

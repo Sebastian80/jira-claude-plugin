@@ -22,6 +22,7 @@ from .base import (
     get_status_style,
     get_type_icon,
     make_issue_link,
+    register_formatter,
     render_to_string,
 )
 
@@ -72,6 +73,7 @@ def _get_nested(data: dict, *keys: str, default: str = "?") -> str:
     return str(result) if result is not None else default
 
 
+@register_formatter("jira", "issue", "rich")
 class JiraIssueRichFormatter(RichFormatter):
     """Rich terminal issue formatting with panels and colors."""
 
@@ -164,6 +166,7 @@ class JiraIssueRichFormatter(RichFormatter):
         return render_to_string(panel)
 
 
+@register_formatter("jira", "issue", "ai")
 class JiraIssueAIFormatter(AIFormatter):
     """AI-optimized issue formatting (compact, structured).
 
@@ -243,6 +246,7 @@ class JiraIssueAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "issue", "markdown")
 class JiraIssueMarkdownFormatter(MarkdownFormatter):
     """Markdown issue formatting."""
 

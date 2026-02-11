@@ -12,12 +12,14 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraWorklogsRichFormatter", "JiraWorklogsAIFormatter"]
 
 
+@register_formatter("jira", "worklogs", "rich")
 class JiraWorklogsRichFormatter(RichFormatter):
     """Rich terminal worklogs table."""
 
@@ -54,6 +56,7 @@ class JiraWorklogsRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "worklogs", "ai")
 class JiraWorklogsAIFormatter(AIFormatter):
     """AI-optimized worklogs list."""
 

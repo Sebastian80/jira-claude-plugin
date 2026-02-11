@@ -14,6 +14,7 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
@@ -41,6 +42,7 @@ def _is_user_data(data: dict) -> bool:
     return False
 
 
+@register_formatter("jira", "user", "rich")
 class JiraUserRichFormatter(RichFormatter):
     """Rich terminal user formatting with panels and colors."""
 
@@ -93,6 +95,7 @@ class JiraUserRichFormatter(RichFormatter):
         return render_to_string(panel)
 
 
+@register_formatter("jira", "user", "ai")
 class JiraUserAIFormatter(AIFormatter):
     """AI-optimized user formatting (compact, structured).
 
@@ -123,6 +126,7 @@ class JiraUserAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "user", "markdown")
 class JiraUserMarkdownFormatter(MarkdownFormatter):
     """Markdown user formatting."""
 

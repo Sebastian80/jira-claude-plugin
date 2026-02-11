@@ -14,12 +14,14 @@ from .base import (
     Text,
     box,
     convert_jira_markup,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraCommentsRichFormatter", "JiraCommentsAIFormatter", "JiraCommentsMarkdownFormatter"]
 
 
+@register_formatter("jira", "comments", "rich")
 class JiraCommentsRichFormatter(RichFormatter):
     """Rich terminal comments with panels."""
 
@@ -66,6 +68,7 @@ class JiraCommentsRichFormatter(RichFormatter):
         return "\n".join(output)
 
 
+@register_formatter("jira", "comments", "ai")
 class JiraCommentsAIFormatter(AIFormatter):
     """AI-optimized comments."""
 
@@ -88,6 +91,7 @@ class JiraCommentsAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "comments", "markdown")
 class JiraCommentsMarkdownFormatter(MarkdownFormatter):
     """Markdown comments."""
 

@@ -13,12 +13,14 @@ from .base import (
     Text,
     box,
     get_status_style,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraTransitionsRichFormatter", "JiraTransitionsAIFormatter"]
 
 
+@register_formatter("jira", "transitions", "rich")
 class JiraTransitionsRichFormatter(RichFormatter):
     """Rich terminal transitions table."""
 
@@ -56,6 +58,7 @@ class JiraTransitionsRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "transitions", "ai")
 class JiraTransitionsAIFormatter(AIFormatter):
     """AI-optimized transitions."""
 

@@ -14,12 +14,14 @@ from .base import (
     box,
     get_status_style,
     make_issue_link,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraLinksRichFormatter", "JiraLinksAIFormatter"]
 
 
+@register_formatter("jira", "links", "rich")
 class JiraLinksRichFormatter(RichFormatter):
     """Rich terminal issue links table."""
 
@@ -70,6 +72,7 @@ class JiraLinksRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "links", "ai")
 class JiraLinksAIFormatter(AIFormatter):
     """AI-optimized issue links."""
 

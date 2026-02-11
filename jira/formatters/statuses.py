@@ -13,6 +13,7 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
@@ -23,6 +24,7 @@ __all__ = [
 ]
 
 
+@register_formatter("jira", "statuses", "rich")
 class JiraStatusesRichFormatter(RichFormatter):
     """Rich terminal status table."""
 
@@ -51,6 +53,7 @@ class JiraStatusesRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "statuses", "ai")
 class JiraStatusesAIFormatter(AIFormatter):
     """AI-optimized status list."""
 
@@ -78,6 +81,7 @@ class JiraStatusesAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "statuses", "markdown")
 class JiraStatusesMarkdownFormatter(MarkdownFormatter):
     """Markdown status table."""
 

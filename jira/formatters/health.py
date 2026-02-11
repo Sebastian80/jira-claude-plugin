@@ -13,6 +13,7 @@ from .base import (
     RichFormatter,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
@@ -24,6 +25,7 @@ def _is_health_data(data: dict) -> bool:
     return "status" in data and "connected" in data
 
 
+@register_formatter("jira", "health", "rich")
 class JiraHealthRichFormatter(RichFormatter):
     """Rich terminal health formatting."""
 
@@ -60,6 +62,7 @@ class JiraHealthRichFormatter(RichFormatter):
         return render_to_string(panel)
 
 
+@register_formatter("jira", "health", "ai")
 class JiraHealthAIFormatter(AIFormatter):
     """AI-optimized health formatting."""
 
@@ -82,6 +85,7 @@ class JiraHealthAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "health", "markdown")
 class JiraHealthMarkdownFormatter(MarkdownFormatter):
     """Markdown health formatting."""
 

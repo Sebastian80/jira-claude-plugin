@@ -13,6 +13,7 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
@@ -23,6 +24,7 @@ __all__ = [
 ]
 
 
+@register_formatter("jira", "priorities", "rich")
 class JiraPrioritiesRichFormatter(RichFormatter):
     """Rich terminal priority table."""
 
@@ -49,6 +51,7 @@ class JiraPrioritiesRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "priorities", "ai")
 class JiraPrioritiesAIFormatter(AIFormatter):
     """AI-optimized priority list."""
 
@@ -66,6 +69,7 @@ class JiraPrioritiesAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "priorities", "markdown")
 class JiraPrioritiesMarkdownFormatter(MarkdownFormatter):
     """Markdown priority table."""
 

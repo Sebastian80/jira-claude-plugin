@@ -17,6 +17,7 @@ from .base import (
     Text,
     box,
     convert_jira_markup,
+    register_formatter,
     render_to_string,
 )
 from .issue import JiraIssueRichFormatter, JiraIssueAIFormatter, JiraIssueMarkdownFormatter
@@ -29,6 +30,7 @@ _ai_issue = JiraIssueAIFormatter()
 _md_issue = JiraIssueMarkdownFormatter()
 
 
+@register_formatter("jira", "show", "rich")
 class JiraShowRichFormatter(RichFormatter):
     """Rich combined issue + comments view."""
 
@@ -91,6 +93,7 @@ class JiraShowRichFormatter(RichFormatter):
         return render_to_string(panel)
 
 
+@register_formatter("jira", "show", "ai")
 class JiraShowAIFormatter(AIFormatter):
     """AI-optimized combined view."""
 
@@ -114,6 +117,7 @@ class JiraShowAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "show", "markdown")
 class JiraShowMarkdownFormatter(MarkdownFormatter):
     """Markdown combined view."""
 

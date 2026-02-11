@@ -12,12 +12,14 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraLinkTypesRichFormatter", "JiraLinkTypesAIFormatter"]
 
 
+@register_formatter("jira", "linktypes", "rich")
 class JiraLinkTypesRichFormatter(RichFormatter):
     """Rich terminal link types table."""
 
@@ -51,6 +53,7 @@ class JiraLinkTypesRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "linktypes", "ai")
 class JiraLinkTypesAIFormatter(AIFormatter):
     """AI-optimized link types."""
 

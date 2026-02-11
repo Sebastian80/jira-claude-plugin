@@ -16,12 +16,14 @@ from .base import (
     get_status_style,
     get_type_icon,
     make_issue_link,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraSearchRichFormatter", "JiraSearchAIFormatter", "JiraSearchMarkdownFormatter"]
 
 
+@register_formatter("jira", "search", "rich")
 class JiraSearchRichFormatter(RichFormatter):
     """Rich terminal search results with tables."""
 
@@ -68,6 +70,7 @@ class JiraSearchRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "search", "ai")
 class JiraSearchAIFormatter(AIFormatter):
     """AI-optimized search results."""
 
@@ -110,6 +113,7 @@ class JiraSearchAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "search", "markdown")
 class JiraSearchMarkdownFormatter(MarkdownFormatter):
     """Markdown search results table."""
 

@@ -6,6 +6,7 @@ Provides base classes, registry, and shared utilities for all Jira formatters.
 
 import functools
 import json
+import logging
 import os
 import re
 from io import StringIO
@@ -28,6 +29,7 @@ __all__ = [
     # Registry
     "FormatterRegistry",
     "formatter_registry",
+    "register_formatter",
     # Utilities
     "render_to_string",
     "make_issue_link",
@@ -133,12 +135,23 @@ class FormatterRegistry:
         if plugin and data_type is None:
             for key, fmt in self._formatters.items():
                 if key.startswith(f"{plugin}:") and key.endswith(f":{format_name}"):
+                    logger.debug("Formatter fallback: no data_type specified, returning first match '%s'", key)
                     return fmt
         return None
 
 
+logger = logging.getLogger(__name__)
+
 # Global plugin-local registry
 formatter_registry = FormatterRegistry()
+
+
+def register_formatter(plugin: str, data_type: str, format_name: str):
+    """Class decorator that auto-registers a formatter instance with the global registry."""
+    def decorator(cls):
+        formatter_registry.register(plugin, data_type, format_name, cls())
+        return cls
+    return decorator
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

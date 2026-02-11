@@ -22,7 +22,6 @@ from jira.formatters import (
     JiraTransitionsAIFormatter,
     JiraCommentsRichFormatter,
     JiraCommentsAIFormatter,
-    register_jira_formatters,
     formatter_registry,
 )
 
@@ -248,10 +247,8 @@ class TestJiraCommentsRichFormatter:
 class TestFormatterRegistry:
     """Tests for formatter registration."""
 
-    def test_register_jira_formatters(self):
-        """Should register all jira formatters."""
-        register_jira_formatters()
-
+    def test_formatters_auto_registered(self):
+        """Formatters are auto-registered via decorators on import."""
         # Check issue formatters
         assert formatter_registry.get("ai", plugin="jira", data_type="issue") is not None
         assert formatter_registry.get("rich", plugin="jira", data_type="issue") is not None
@@ -264,7 +261,6 @@ class TestFormatterRegistry:
 
     def test_lookup_with_plugin_and_type(self):
         """Should find formatter by plugin and data type."""
-        register_jira_formatters()
         formatter = formatter_registry.get("ai", plugin="jira", data_type="issue")
         assert formatter is not None
         assert isinstance(formatter, JiraIssueAIFormatter)

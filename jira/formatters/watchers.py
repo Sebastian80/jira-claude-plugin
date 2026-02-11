@@ -12,12 +12,14 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraWatchersRichFormatter", "JiraWatchersAIFormatter"]
 
 
+@register_formatter("jira", "watchers", "rich")
 class JiraWatchersRichFormatter(RichFormatter):
     """Rich terminal watchers table."""
 
@@ -51,6 +53,7 @@ class JiraWatchersRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "watchers", "ai")
 class JiraWatchersAIFormatter(AIFormatter):
     """AI-optimized watchers list."""
 

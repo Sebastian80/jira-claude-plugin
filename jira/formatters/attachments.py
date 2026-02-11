@@ -12,12 +12,14 @@ from .base import (
     Table,
     Text,
     box,
+    register_formatter,
     render_to_string,
 )
 
 __all__ = ["JiraAttachmentsRichFormatter", "JiraAttachmentsAIFormatter"]
 
 
+@register_formatter("jira", "attachments", "rich")
 class JiraAttachmentsRichFormatter(RichFormatter):
     """Rich terminal attachments table."""
 
@@ -60,6 +62,7 @@ class JiraAttachmentsRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "attachments", "ai")
 class JiraAttachmentsAIFormatter(AIFormatter):
     """AI-optimized attachments list."""
 
