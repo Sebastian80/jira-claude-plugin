@@ -6,6 +6,7 @@ Formatters are plugin-local (not imported from bridge).
 """
 
 from .attachments import JiraAttachmentsAIFormatter, JiraAttachmentsRichFormatter
+from .boards import JiraBoardsAIFormatter, JiraBoardsMarkdownFormatter, JiraBoardsRichFormatter
 from .health import (
     JiraHealthAIFormatter,
     JiraHealthMarkdownFormatter,
@@ -31,6 +32,14 @@ from .base import (
 )
 from .comments import JiraCommentsAIFormatter, JiraCommentsMarkdownFormatter, JiraCommentsRichFormatter
 from .priorities import JiraPrioritiesAIFormatter, JiraPrioritiesMarkdownFormatter, JiraPrioritiesRichFormatter
+from .projects import (
+    JiraProjectAIFormatter,
+    JiraProjectMarkdownFormatter,
+    JiraProjectRichFormatter,
+    JiraProjectsAIFormatter,
+    JiraProjectsMarkdownFormatter,
+    JiraProjectsRichFormatter,
+)
 from .statuses import JiraStatusesAIFormatter, JiraStatusesMarkdownFormatter, JiraStatusesRichFormatter
 from .issue import (
     JiraIssueAIFormatter,
@@ -108,6 +117,17 @@ __all__ = [
     # Watchers formatters
     "JiraWatchersRichFormatter",
     "JiraWatchersAIFormatter",
+    # Boards formatters
+    "JiraBoardsRichFormatter",
+    "JiraBoardsAIFormatter",
+    "JiraBoardsMarkdownFormatter",
+    # Projects formatters
+    "JiraProjectsRichFormatter",
+    "JiraProjectsAIFormatter",
+    "JiraProjectsMarkdownFormatter",
+    "JiraProjectRichFormatter",
+    "JiraProjectAIFormatter",
+    "JiraProjectMarkdownFormatter",
     # Attachments formatters
     "JiraAttachmentsRichFormatter",
     "JiraAttachmentsAIFormatter",

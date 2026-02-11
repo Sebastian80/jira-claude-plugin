@@ -83,6 +83,15 @@ ensure_venv() {
         "$VENV_DIR/bin/pip" install --quiet -e "$PLUGIN_DIR"
 
         log "Setup complete."
+    else
+        # Re-install if plugin version changed (e.g. after /plugin update)
+        local plugin_version installed_version
+        plugin_version=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/plugin.json'))['version'])" 2>/dev/null)
+        installed_version=$("$VENV_DIR/bin/pip" show jira-cli 2>/dev/null | sed -n 's/^Version: //p')
+        if [[ -n "$plugin_version" && "$plugin_version" != "$installed_version" ]]; then
+            log "Upgrading jira-cli $installed_version -> $plugin_version..."
+            "$VENV_DIR/bin/pip" install --quiet -e "$PLUGIN_DIR"
+        fi
     fi
 }
 
