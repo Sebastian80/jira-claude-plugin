@@ -58,5 +58,5 @@ async def upload_attachment(
 @jira_error_handler(not_found="Attachment {attachment_id} not found", forbidden="Permission denied")
 async def delete_attachment(attachment_id: str, client=Depends(jira)):
     """Delete attachment."""
-    client.delete_attachment(attachment_id)
+    client.remove_attachment(attachment_id)
     return success({"attachment_id": attachment_id, "deleted": True})

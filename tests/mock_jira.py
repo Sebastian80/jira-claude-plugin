@@ -232,8 +232,8 @@ class MockJiraClient:
             result[0]["filename"] = attachment.name
         return result
 
-    def delete_attachment(self, attachment_id: str) -> None:
-        self._call_log.append(("delete_attachment", attachment_id))
+    def remove_attachment(self, attachment_id: str) -> None:
+        self._call_log.append(("remove_attachment", attachment_id))
         if _is_nonexistent(attachment_id):
             raise make_http_error(404, f"Attachment {attachment_id} not found")
         if _is_forbidden(attachment_id):
