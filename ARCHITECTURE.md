@@ -154,7 +154,7 @@ Each module handles a specific domain:
 | comments.py | `/comments/{key}`, `/comment/{key}`, DELETE `/comment/{key}/{id}` | Comments |
 | workflow.py | `/transitions/{key}`, `/transition/{key}` | Status changes |
 | watchers.py | `/watchers/{key}`, `/watcher/{key}` | Watchers |
-| attachments.py | `/attachments/{key}`, `/attachment/{key}` | Files |
+| attachments.py | `/attachments/{key}`, `/attachment/{key}`, DELETE `/attachment/{id}` | File upload/delete |
 | links.py | `/links/{key}`, `/linktypes` | Issue links |
 | worklogs.py | `/worklogs/{key}`, `/worklog/{key}` | Time tracking |
 | projects.py | `/projects`, `/project/{key}` | Projects |
