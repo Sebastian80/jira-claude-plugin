@@ -107,7 +107,7 @@ jira health     # Check Jira connection
 │   ├── main.py            # Server entry point
 │   ├── deps.py            # Dependency injection
 │   ├── response.py        # Response formatting + error utilities
-│   ├── routes/            # 20 endpoint modules
+│   ├── routes/            # 18 endpoint modules
 │   ├── formatters/        # Output formatters (ai, rich, markdown)
 │   └── lib/               # Config, client, workflow engine
 ├── agents/
@@ -126,7 +126,7 @@ jira health     # Check Jira connection
 
 - **GET/DELETE** endpoints use query parameters
 - **POST/PATCH** endpoints use JSON request bodies (Pydantic models)
-- Error handling uses HTTP status codes via `requests.HTTPError`
+- Error handling via `@jira_error_handler` decorator (catches HTTPError by status code)
 - All endpoints return `{"success": true, "data": ...}` or `{"success": false, "error": ...}`
 
 ## Documentation

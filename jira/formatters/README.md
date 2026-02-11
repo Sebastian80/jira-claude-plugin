@@ -34,7 +34,7 @@ Transform Jira API responses into different output formats optimized for differe
 
 ```
 formatters/
-├── __init__.py      # Registry, exports, register_jira_formatters()
+├── __init__.py      # Registry, exports, auto-registration imports
 ├── base.py          # Base classes, utilities, icons/styles
 ├── issue.py         # Single issue (with linked issues, warnings)
 ├── show.py          # Combined issue + comments view (reuses issue helpers)
@@ -266,17 +266,23 @@ get_priority_style("Critical") # ("▲▲", "bold red")
 ### Registration
 
 ```python
-# In formatters/__init__.py
+# Formatters auto-register via the @register_formatter class decorator.
+# In each formatter module (e.g., formatters/issue.py):
 
-def register_jira_formatters():
-    # Issue formatters
-    formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
-    formatter_registry.register("jira", "issue", "rich", JiraIssueRichFormatter())
-    formatter_registry.register("jira", "issue", "markdown", JiraIssueMarkdownFormatter())
+from .base import AIFormatter, RichFormatter, MarkdownFormatter, register_formatter
 
-    # Search formatters (also used for bulk fetch)
-    formatter_registry.register("jira", "search", "ai", JiraSearchAIFormatter())
-    # ...
+@register_formatter("jira", "issue", "ai")
+class JiraIssueAIFormatter(AIFormatter):
+    def format(self, data: Any) -> str:
+        ...
+
+@register_formatter("jira", "issue", "rich")
+class JiraIssueRichFormatter(RichFormatter):
+    def format(self, data: Any) -> str:
+        ...
+
+# Registration happens automatically when the module is imported.
+# Importing `jira.formatters` in jira/__init__.py triggers all decorator registrations.
 ```
 
 ### Lookup Rules
@@ -295,7 +301,7 @@ formatter_registry.get("ai", plugin="jira")
 
 ## Adding a New Formatter
 
-### 1. Create Formatter Class
+### 1. Create Formatter Class with Decorator
 
 ```python
 # formatters/sprints.py
@@ -303,9 +309,11 @@ formatter_registry.get("ai", plugin="jira")
 from typing import Any
 from .base import (
     AIFormatter, RichFormatter,
-    Table, box, render_to_string
+    Table, box, render_to_string,
+    register_formatter,
 )
 
+@register_formatter("jira", "sprints", "ai")
 class JiraSprintsAIFormatter(AIFormatter):
     """AI-optimized sprint list formatting."""
 
@@ -325,6 +333,7 @@ class JiraSprintsAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "sprints", "rich")
 class JiraSprintsRichFormatter(RichFormatter):
     """Rich terminal sprint formatting."""
 
@@ -332,31 +341,22 @@ class JiraSprintsRichFormatter(RichFormatter):
         # ... Rich table implementation
 ```
 
-### 2. Register in __init__.py
+### 2. Import in __init__.py
 
 ```python
 # formatters/__init__.py
 
 from .sprints import JiraSprintsAIFormatter, JiraSprintsRichFormatter
-
-__all__ = [
-    # ...existing...
-    "JiraSprintsAIFormatter",
-    "JiraSprintsRichFormatter",
-]
-
-def register_jira_formatters():
-    # ...existing...
-    formatter_registry.register("jira", "sprints", "ai", JiraSprintsAIFormatter())
-    formatter_registry.register("jira", "sprints", "rich", JiraSprintsRichFormatter())
 ```
+
+The import triggers auto-registration via the `@register_formatter` decorator. No manual `formatter_registry.register()` calls needed.
 
 ### 3. Use in Route
 
 ```python
-# In route handler:
+# In your route handler:
 return formatted(data, format, "sprints")
-#                              ^^^^^^^ Must match registry key
+#                              ^^^^^^^ Must match decorator's data_type argument
 ```
 
 ## Design Principles

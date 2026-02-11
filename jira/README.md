@@ -6,7 +6,7 @@ Internal architecture and component documentation for the `jira/` Python package
 
 ```
 jira/
-├── __init__.py      # Package init, formatter registration
+├── __init__.py      # Package init, triggers formatter auto-registration
 ├── main.py          # FastAPI server entry point
 ├── deps.py          # Dependency injection (fresh client per request)
 ├── response.py      # Response formatting utilities
@@ -33,7 +33,7 @@ jira/
 │   └── help.py      # Self-documenting /help endpoint
 │
 ├── formatters/      # Output formatters (AI, Rich, Markdown)
-│   ├── __init__.py  # Registry, registration function
+│   ├── __init__.py  # Registry, exports, auto-registration imports
 │   ├── base.py      # Base classes, utilities
 │   ├── issue.py     # Issue formatters
 │   ├── search.py    # Search results formatters
@@ -42,8 +42,7 @@ jira/
 └── lib/             # Shared utilities
     ├── client.py    # get_jira_client() factory
     ├── config.py    # Environment config loading
-    ├── output.py    # Output helpers
-    └── workflow.py  # Workflow utilities
+    └── workflow.py  # Workflow engine (BFS pathfinding)
 ```
 
 ## Request Flow
@@ -156,10 +155,11 @@ Each route module follows this pattern:
 # routes/issues.py
 from fastapi import APIRouter, Depends, Query
 from ..deps import jira
-from ..response import formatted, formatted_error
+from ..response import formatted, jira_error_handler
 
 router = APIRouter()
 
+@jira_error_handler(not_found="Issue {key} not found")
 @router.get("/issue/{key}")
 async def get_issue(
     key: str,
@@ -167,32 +167,30 @@ async def get_issue(
     client=Depends(jira),
 ):
     """Get issue details by key."""
-    try:
-        issue = client.issue(key)
-        return formatted(issue, format, "issue")
-    except Exception as e:
-        if "not found" in str(e).lower():
-            return formatted_error(f"Issue {key} not found", fmt=format, status=404)
-        raise HTTPException(status_code=500, detail=str(e))
+    issue = client.issue(key)
+    return formatted(issue, format, "issue")
 ```
+
+The `@jira_error_handler` decorator catches `HTTPError` (404, 409, 403, 400) and `Exception`
+automatically, with format-aware error responses for GET endpoints.
 
 ## Formatter Registration
 
-Formatters are registered by (plugin, data_type, format):
+Formatters auto-register via the `@register_formatter` class decorator:
 
 ```python
-# In formatters/__init__.py
+# In each formatter module (e.g., formatters/issue.py)
 
-def register_jira_formatters():
-    # Issue formatters
-    formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
-    formatter_registry.register("jira", "issue", "rich", JiraIssueRichFormatter())
-    formatter_registry.register("jira", "issue", "markdown", JiraIssueMarkdownFormatter())
+from .base import AIFormatter, register_formatter
 
-    # Search formatters
-    formatter_registry.register("jira", "search", "ai", JiraSearchAIFormatter())
-    # ...
+@register_formatter("jira", "issue", "ai")
+class JiraIssueAIFormatter(AIFormatter):
+    def format(self, data: Any) -> str:
+        ...
 ```
+
+Registration happens when the module is imported. `jira/__init__.py` imports `jira.formatters`
+which triggers all decorator registrations.
 
 Lookup:
 ```python

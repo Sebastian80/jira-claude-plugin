@@ -40,7 +40,7 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 │  • search.py: GET /search?jql=...                                          │
 │  • comments.py: GET/POST /comments/{key}                                   │
 │  • workflow.py: GET /transitions/{key}, POST /transition/{key}             │
-│  • ... 20 route modules total                                              │
+│  • ... 18 route modules total                                              │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ Depends(jira) injection
@@ -211,10 +211,20 @@ Transforms API responses for different consumers:
 
 **Registration:**
 ```python
-formatter_registry.register("jira", "issue", "ai", JiraIssueAIFormatter())
-formatter_registry.register("jira", "issue", "rich", JiraIssueRichFormatter())
-formatter_registry.register("jira", "issue", "markdown", JiraIssueMarkdownFormatter())
+@register_formatter("jira", "issue", "ai")
+class JiraIssueAIFormatter(AIFormatter):
+    ...
+
+@register_formatter("jira", "issue", "rich")
+class JiraIssueRichFormatter(RichFormatter):
+    ...
+
+@register_formatter("jira", "issue", "markdown")
+class JiraIssueMarkdownFormatter(MarkdownFormatter):
+    ...
 ```
+
+Formatters auto-register when their module is imported. Importing `jira.formatters` in `jira/__init__.py` triggers all decorators.
 
 **Lookup:**
 ```python
@@ -346,49 +356,41 @@ formatters/myentity.py
         │
         ▼
 1. Create classes extending AIFormatter, RichFormatter, MarkdownFormatter
-2. Implement format(self, data) method
-        │
-        ▼
-formatters/__init__.py
-    1. Import classes
-    2. Add to __all__
-    3. Register in register_jira_formatters()
+2. Decorate with @register_formatter("jira", "entity", "ai/rich/markdown")
+3. Import in formatters/__init__.py (triggers auto-registration)
 ```
+
+No need to edit `register_jira_formatters()` — it no longer exists.
 
 ## Error Handling
 
-All routes use HTTP status code checking via helpers in `response.py`:
+All routes use the `@jira_error_handler` decorator from `response.py`, which catches HTTPError (404, 409, 403, 400) and Exception automatically, with format-aware error responses for GET endpoints:
 
-**GET endpoints** (with `format` param) use `formatted_error()` for format-aware error responses:
+**GET endpoints** (with `format` param):
 
 ```python
-from ..response import formatted, formatted_error, get_status_code, is_status
+from ..response import jira_error_handler, formatted
 
-try:
+@jira_error_handler(not_found="Issue {key} not found")
+@router.get("/issue/{key}")
+async def get_issue(
+    key: str,
+    format: str = Query("json"),
+    client=Depends(jira),
+):
+    """Get issue details by key."""
     data = client.issue(key)
     return formatted(data, format, "issue")
-except HTTPError as e:
-    if is_status(e, 404):
-        return formatted_error(f"Issue {key} not found", fmt=format, status=404)
-    raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-except Exception as e:
-    raise HTTPException(status_code=500, detail=str(e))
 ```
 
-**Write endpoints** (POST/PATCH/DELETE without `format` param) use `error()` with explicit status:
+**Write endpoints** (POST/PATCH/DELETE without `format` param) use the same decorator:
 
 ```python
-from ..response import success, error, get_status_code, is_status
-
-try:
-    client.issue_add_comment(key, body.text)
+@jira_error_handler(not_found="Issue {key} not found")
+@router.post("/comment/{key}")
+async def add_comment(key: str, body: AddCommentBody, client=Depends(jira)):
+    result = client.issue_add_comment(key, body.text)
     return success(result)
-except HTTPError as e:
-    if is_status(e, 404):
-        return error(f"Issue {key} not found", status=404)
-    raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
-except Exception as e:
-    raise HTTPException(status_code=500, detail=str(e))
 ```
 
 Custom 404 handler in `main.py` provides helpful messages for missing parameters:
@@ -423,7 +425,7 @@ ROUTES_REQUIRING_KEY = {
 │   ├── main.py                 # FastAPI app
 │   ├── deps.py                 # Dependency injection
 │   ├── response.py             # Response formatting + error utilities
-│   ├── routes/                 # 20 endpoint modules (Pydantic models for POST/PATCH)
+│   ├── routes/                 # 18 endpoint modules (Pydantic models for POST/PATCH)
 │   ├── formatters/             # Output formatters (ai, rich, markdown)
 │   └── lib/                    # Config, client, workflow engine
 ├── agents/                     # Subagent definitions

@@ -20,14 +20,15 @@ Routes are FastAPI endpoint handlers. Each route module handles a related group 
 ```python
 # routes/sprints.py
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted, formatted_error
+from ..response import formatted, jira_error_handler
 
 router = APIRouter()
 
 
+@jira_error_handler(not_found="Board {board_id} not found")
 @router.get("/sprints/{board_id}")
 async def get_sprints(
     board_id: str,
@@ -35,19 +36,12 @@ async def get_sprints(
     format: str = Query("json", description="Output format: json, ai, rich, markdown"),
     client=Depends(jira),
 ):
-    """Get sprints for an agile board.
-
-    Lists all sprints for the specified board, filtered by state.
-    """
-    try:
-        sprints = client.get_all_sprints_from_board(board_id, state=state)
-        return formatted(sprints, format, "sprints")
-    except Exception as e:
-        if "404" in str(e) or "not found" in str(e).lower():
-            return formatted_error(f"Board {board_id} not found", fmt=format, status=404)
-        raise HTTPException(status_code=500, detail=str(e))
+    """Get sprints for an agile board."""
+    sprints = client.get_all_sprints_from_board(board_id, state=state)
+    return formatted(sprints, format, "sprints")
 
 
+@jira_error_handler(not_found="Sprint {sprint_id} not found")
 @router.get("/sprint/{sprint_id}")
 async def get_sprint(
     sprint_id: str,
@@ -55,13 +49,8 @@ async def get_sprint(
     client=Depends(jira),
 ):
     """Get sprint details by ID."""
-    try:
-        sprint = client.get_sprint(sprint_id)
-        return formatted(sprint, format, "sprint")
-    except Exception as e:
-        if "404" in str(e) or "not found" in str(e).lower():
-            return formatted_error(f"Sprint {sprint_id} not found", fmt=format, status=404)
-        raise HTTPException(status_code=500, detail=str(e))
+    sprint = client.get_sprint(sprint_id)
+    return formatted(sprint, format, "sprint")
 ```
 
 ### Step 2: Register in routes/__init__.py
@@ -94,6 +83,7 @@ jira sprint 456                     # GET /jira/sprint/456
 ### Pattern: GET with Formatting
 
 ```python
+@jira_error_handler(not_found="Entity {key} not found")
 @router.get("/entity/{key}")
 async def get_entity(
     key: str,
@@ -101,13 +91,8 @@ async def get_entity(
     client=Depends(jira),
 ):
     """Get entity by key."""
-    try:
-        data = client.get_entity(key)
-        return formatted(data, format, "entity")
-    except Exception as e:
-        if "not found" in str(e).lower():
-            return formatted_error(f"Entity {key} not found", fmt=format, status=404)
-        raise HTTPException(status_code=500, detail=str(e))
+    data = client.get_entity(key)
+    return formatted(data, format, "entity")
 ```
 
 ### Pattern: POST with Validation
@@ -167,9 +152,11 @@ Formatters transform API data into output formats.
 from typing import Any
 from .base import (
     AIFormatter, RichFormatter, MarkdownFormatter,
-    Table, Panel, Text, box, render_to_string
+    Table, Panel, Text, box, render_to_string,
+    register_formatter,
 )
 
+@register_formatter("jira", "sprints", "ai")
 class JiraSprintsAIFormatter(AIFormatter):
     """AI-optimized sprint formatting."""
 
@@ -189,6 +176,7 @@ class JiraSprintsAIFormatter(AIFormatter):
         return "\n".join(lines)
 
 
+@register_formatter("jira", "sprints", "rich")
 class JiraSprintsRichFormatter(RichFormatter):
     """Rich terminal sprint formatting."""
 
@@ -215,6 +203,7 @@ class JiraSprintsRichFormatter(RichFormatter):
         return render_to_string(table)
 
 
+@register_formatter("jira", "sprints", "markdown")
 class JiraSprintsMarkdownFormatter(MarkdownFormatter):
     """Markdown sprint formatting."""
 
@@ -237,35 +226,19 @@ class JiraSprintsMarkdownFormatter(MarkdownFormatter):
         return "\n".join(lines)
 ```
 
-### Step 2: Register Formatters
+### Step 2: Import in \_\_init\_\_.py
 
 ```python
 # formatters/__init__.py
 
-# Add imports
 from .sprints import (
     JiraSprintsAIFormatter,
     JiraSprintsRichFormatter,
     JiraSprintsMarkdownFormatter,
 )
-
-# Add to __all__
-__all__ = [
-    # ...existing...
-    "JiraSprintsAIFormatter",
-    "JiraSprintsRichFormatter",
-    "JiraSprintsMarkdownFormatter",
-]
-
-# Add to register_jira_formatters()
-def register_jira_formatters():
-    # ...existing registrations...
-
-    # Sprints formatters
-    formatter_registry.register("jira", "sprints", "ai", JiraSprintsAIFormatter())
-    formatter_registry.register("jira", "sprints", "rich", JiraSprintsRichFormatter())
-    formatter_registry.register("jira", "sprints", "markdown", JiraSprintsMarkdownFormatter())
 ```
+
+The import triggers auto-registration via the `@register_formatter` decorator.
 
 ### Step 3: Use in Route
 
@@ -315,7 +288,7 @@ from .sprints import router as sprints_router
 
 # formatters/__init__.py
 from .sprints import JiraSprintsAIFormatter, ...
-# Add to __all__ and register_jira_formatters()
+# Import triggers auto-registration via @register_formatter decorator
 ```
 
 ### 4. Add Tests
@@ -332,7 +305,8 @@ class TestSprintsRoutes:
 
     def test_get_sprints_not_found(self):
         stdout, stderr, code = run_cli_raw("jira", "sprints", "99999")
-        assert "not found" in stdout.lower() or code != 0
+        assert code != 0
+        assert "not found" in stdout.lower() or "error" in stdout.lower()
 ```
 
 ### 5. Update Documentation
@@ -403,9 +377,9 @@ jira health
 
 **Fix:**
 ```python
-# Ensure registry key matches
-formatter_registry.register("jira", "sprints", "ai", ...)
-#                                    ^^^^^^^ Must match formatted(..., "sprints")
+# Ensure decorator matches route usage
+@register_formatter("jira", "sprints", "ai")
+#                           ^^^^^^^ Must match formatted(..., "sprints")
 ```
 
 ### 2. Path Parameter Issues
@@ -466,9 +440,9 @@ client.project(key)
 ## Checklist for New Features
 
 - [ ] Route handler with proper path, query params, and error handling
-- [ ] Registered in `routes/__init__.py`
+- [ ] Added to `routes/__init__.py`
 - [ ] Formatter classes (AI, Rich, optionally Markdown)
-- [ ] Registered in `formatters/__init__.py`
+- [ ] Imported in `formatters/__init__.py` (triggers auto-registration)
 - [ ] Route tests in `tests/routes/`
 - [ ] Documentation in `skills/jira/references/commands.md`
 - [ ] Manual testing with all formats

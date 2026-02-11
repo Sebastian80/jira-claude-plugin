@@ -1,6 +1,6 @@
 {
   "name": "jira",
-  "version": "2.7.1",
+  "version": "3.0.0",
   "description": "Standalone Jira CLI for issue tracking and workflow automation",
   "author": {
     "name": "Netresearch DTT GmbH",
