@@ -551,7 +551,7 @@ class TestSmartTransition:
         assert "Done" in comment
 
     def test_add_comment_failure_does_not_raise(self):
-        """Comment failure is silently swallowed (current behavior)."""
+        """Comment failure should not raise, but should log a warning."""
         client = _make_workflow_client({
             "Open": [{"id": "11", "name": "Close", "to": "Done"}],
         })
@@ -559,6 +559,17 @@ class TestSmartTransition:
         # Should not raise despite comment failure
         result = smart_transition(client, "TEST-1", "Done", add_comment=True)
         assert len(result) == 1
+
+    def test_add_comment_failure_logs_warning(self, caplog):
+        """Bug 4.2: Comment failure should log a warning, not be silently swallowed."""
+        import logging
+        client = _make_workflow_client({
+            "Open": [{"id": "11", "name": "Close", "to": "Done"}],
+        })
+        client.issue_add_comment.side_effect = Exception("Comment failed")
+        with caplog.at_level(logging.WARNING, logger="jira.lib.workflow"):
+            smart_transition(client, "TEST-1", "Done", add_comment=True)
+        assert any("Comment failed" in record.message for record in caplog.records)
 
     def test_no_comment_on_dry_run(self):
         client = _make_workflow_client({

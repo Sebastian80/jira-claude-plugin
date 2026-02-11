@@ -76,6 +76,13 @@ def _is_nonexistent(key: str) -> bool:
     )
 
 
+def _is_forbidden(key: str) -> bool:
+    """Check if a key/id should trigger a 403 Forbidden response."""
+    if not key:
+        return False
+    return "FORBIDDEN" in key.upper()
+
+
 class MockJiraClient:
     """Concrete mock Jira client implementing all methods used by route handlers."""
 
@@ -229,6 +236,8 @@ class MockJiraClient:
         self._call_log.append(("delete_attachment", attachment_id))
         if _is_nonexistent(attachment_id):
             raise make_http_error(404, f"Attachment {attachment_id} not found")
+        if _is_forbidden(attachment_id):
+            raise make_http_error(403, "Permission denied")
 
     # =========================================================================
     # Projects
@@ -376,10 +385,24 @@ class MockJiraClient:
                     raise make_http_error(404, "Issue not found")
             return deepcopy(WEBLINKS)
         if "agile" in url and "board" in url:
+            # Check for nonexistent board ID in URL
+            parts = url.split("/")
+            for i, part in enumerate(parts):
+                if part == "board" and i + 1 < len(parts):
+                    board_id = parts[i + 1]
+                    if board_id.isdigit() and _is_nonexistent(board_id):
+                        raise make_http_error(404, f"Board {board_id} not found")
             if "sprint" in url:
                 return deepcopy(SPRINTS)
             return deepcopy(BOARDS)
         if "agile" in url and "sprint" in url:
+            # Check for nonexistent sprint ID in URL
+            parts = url.split("/")
+            for i, part in enumerate(parts):
+                if part == "sprint" and i + 1 < len(parts):
+                    sprint_id = parts[i + 1]
+                    if sprint_id.isdigit() and _is_nonexistent(sprint_id):
+                        raise make_http_error(404, f"Sprint {sprint_id} not found")
             return deepcopy(SPRINT)
         if "worklog" in url:
             parts = url.split("/")

@@ -12,9 +12,10 @@ Endpoints:
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from requests import HTTPError
 
 from ..deps import jira
-from ..response import success, error
+from ..response import success, error, get_status_code, is_status
 
 router = APIRouter()
 
@@ -40,6 +41,10 @@ async def list_boards(
         # Use raw request to Agile API
         result = client.get("rest/agile/1.0/board", params=params)
         return success(result.get("values", []))
+    except HTTPError as e:
+        if is_status(e, 404):
+            return error("No boards found", status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -58,6 +63,10 @@ async def list_sprints(
 
         result = client.get(f"rest/agile/1.0/board/{board_id}/sprint", params=params)
         return success(result.get("values", []))
+    except HTTPError as e:
+        if is_status(e, 404):
+            return error(f"Board {board_id} not found", status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -71,6 +80,10 @@ async def get_sprint(
     try:
         result = client.get(f"rest/agile/1.0/sprint/{sprint_id}")
         return success(result)
+    except HTTPError as e:
+        if is_status(e, 404):
+            return error(f"Sprint {sprint_id} not found", status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -86,6 +99,10 @@ async def add_issues_to_sprint(sprint_id: int, body: SprintIssuesBody, client=De
             json={"issues": issue_keys}
         )
         return success({"sprint_id": sprint_id, "added": issue_keys})
+    except HTTPError as e:
+        if is_status(e, 404):
+            return error(f"Sprint {sprint_id} not found", status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -106,6 +123,8 @@ async def remove_issues_from_sprint(
             json={"issues": issue_keys}
         )
         return success({"removed_from_sprint": sprint_id, "moved_to_backlog": issue_keys})
+    except HTTPError as e:
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -136,5 +155,9 @@ async def get_active_sprint(
             return error(f"No active sprint found for project {project}")
 
         return success(sprint_list[0])
+    except HTTPError as e:
+        if is_status(e, 404):
+            return error(f"No boards found for project {project}", status=404)
+        raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

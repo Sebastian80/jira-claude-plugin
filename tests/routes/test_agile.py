@@ -137,6 +137,28 @@ class TestRemoveIssuesFromSprint:
         assert "moved_to_backlog" in result
 
 
+class TestAgileHTTPErrors:
+    """Test that agile routes handle HTTPError properly (bug 4.4)."""
+
+    def test_sprints_nonexistent_board_returns_friendly_error(self):
+        """Should return user-friendly error, not generic 500 detail."""
+        from helpers import _test_client
+        response = _test_client.get("/jira/sprints/99999999")
+        assert response.status_code == 404
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"].lower()
+
+    def test_sprint_nonexistent_returns_friendly_error(self):
+        """Should return user-friendly error, not generic 500 detail."""
+        from helpers import _test_client
+        response = _test_client.get("/jira/sprint/99999999")
+        assert response.status_code == 404
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"].lower()
+
+
 class TestAgileEdgeCases:
     """Test edge cases for agile endpoints."""
 

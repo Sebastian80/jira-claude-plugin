@@ -2,11 +2,14 @@
 """Jira workflow graph and transition logic."""
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from collections import deque
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowError(Exception):
@@ -556,7 +559,7 @@ def smart_transition(
         comment = f"Transitioned: {trail}"
         try:
             client.issue_add_comment(issue_key, comment)
-        except Exception:
-            pass  # Don't fail if comment fails
+        except Exception as e:
+            logger.warning("Failed to add transition comment to %s: %s", issue_key, e)
 
     return executed

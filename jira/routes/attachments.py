@@ -44,10 +44,17 @@ async def upload_attachment(
     client=Depends(jira)
 ):
     """Upload attachment to issue using multipart form-data."""
+    MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+
     try:
         # Wrap in BytesIO to set .name for the multipart Content-Disposition header
         # (SpooledTemporaryFile.name is read-only)
         content = file.file.read()
+        if len(content) > MAX_UPLOAD_SIZE:
+            return error(
+                f"File too large ({len(content)} bytes). Maximum upload size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
+                status=413,
+            )
         upload = io.BytesIO(content)
         upload.name = file.filename
         result = client.add_attachment_object(issue_key=key, attachment=upload)
@@ -72,7 +79,7 @@ async def delete_attachment(attachment_id: str, client=Depends(jira)):
         if is_status(e, 404):
             return error(f"Attachment {attachment_id} not found", status=404)
         if is_status(e, 403):
-            return error("Permission denied")
+            return error("Permission denied", status=403)
         raise HTTPException(status_code=get_status_code(e) or 500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

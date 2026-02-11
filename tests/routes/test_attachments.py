@@ -122,6 +122,37 @@ class TestDeleteAttachment:
                 "existiert nicht" in stdout_lower or code != 0)
 
 
+class TestDeleteAttachmentForbidden:
+    """Test that 403 from Jira is returned as HTTP 403, not 400."""
+
+    def test_delete_forbidden_returns_403(self):
+        """Bug 4.1: delete_attachment with 403 should return status=403."""
+        from helpers import _test_client
+        response = _test_client.delete("/jira/attachment/FORBIDDEN-001")
+        assert response.status_code == 403
+        data = response.json()
+        assert data["success"] is False
+        assert "permission denied" in data["error"].lower()
+
+
+class TestUploadSizeLimit:
+    """Test that oversized uploads are rejected."""
+
+    def test_upload_over_50mb_returns_413(self):
+        """Bug 4.3: uploads over 50MB should be rejected with 413."""
+        import io as _io
+        from helpers import _test_client
+        # Create a fake file just over the limit (50MB + 1 byte)
+        oversized = _io.BytesIO(b"\x00" * (50 * 1024 * 1024 + 1))
+        response = _test_client.post(
+            "/jira/attachment/HMKG-2062",
+            files={"file": ("big.bin", oversized, "application/octet-stream")},
+        )
+        assert response.status_code == 413
+        data = response.json()
+        assert data["success"] is False
+
+
 class TestAttachmentEdgeCases:
     """Test edge cases for attachments."""
 
