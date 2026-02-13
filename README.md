@@ -109,7 +109,7 @@ jira health     # Check Jira connection
 │   ├── response.py        # Response formatting + error utilities
 │   ├── routes/            # 18 endpoint modules
 │   ├── formatters/        # Output formatters (ai, rich, markdown)
-│   └── lib/               # Config, client, workflow engine
+│   └── lib/               # Config, JiraClient (Jira subclass), workflow engine
 ├── agents/
 │   └── jira-agent.md      # Subagent for complex workflows (memory-enabled)
 ├── skills/

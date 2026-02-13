@@ -407,7 +407,7 @@ jira restart
 
 ## Jira API Reference
 
-The `client` parameter is an `atlassian.Jira` instance. Documentation:
+The `client` parameter is a `JiraClient` instance (subclass of `atlassian.Jira` with attachment MIME type fix). Documentation:
 - https://atlassian-python-api.readthedocs.io/jira.html
 
 Common methods:

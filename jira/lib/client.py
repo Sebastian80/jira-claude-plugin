@@ -1,9 +1,30 @@
 """Jira client initialization for CLI scripts."""
 
-from typing import Optional
+import mimetypes
+import os
+from typing import BinaryIO, Optional
+
 from atlassian import Jira
 
 from .config import load_env, validate_config, get_auth_mode
+
+
+class JiraClient(Jira):
+    """Jira client with fixed multipart attachment uploads.
+
+    urllib3 2.x no longer auto-sets per-part Content-Type in multipart forms
+    when using the simple ``files={"file": fobj}`` form. This override uses
+    the explicit tuple form so Jira receives the correct MIME type.
+    """
+
+    def add_attachment_object(self, issue_key: str, attachment: BinaryIO):
+        name = getattr(attachment, "name", None) or "attachment"
+        basename = os.path.basename(name)
+        content_type = mimetypes.guess_type(basename)[0] or "application/octet-stream"
+        base_url = self.resource_url("issue")
+        url = f"{base_url}/{issue_key}/attachments"
+        files = {"file": (basename, attachment, content_type)}
+        return self.post(url, headers=self.no_check_headers, files=files)
 
 def get_jira_client(env_file: Optional[str] = None) -> Jira:
     """Initialize and return a Jira client.
@@ -42,7 +63,7 @@ def get_jira_client(env_file: Optional[str] = None) -> Jira:
     try:
         if auth_mode == 'pat':
             # Server/DC with Personal Access Token
-            client = Jira(
+            client = JiraClient(
                 url=url,
                 token=config['JIRA_PERSONAL_TOKEN'],
                 cloud=is_cloud,
@@ -50,7 +71,7 @@ def get_jira_client(env_file: Optional[str] = None) -> Jira:
             )
         else:
             # Cloud with username + API token
-            client = Jira(
+            client = JiraClient(
                 url=url,
                 username=config['JIRA_USERNAME'],
                 password=config['JIRA_API_TOKEN'],

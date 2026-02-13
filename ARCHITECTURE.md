@@ -56,9 +56,10 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
                                       │ client.issue("PROJ-123")
                                       ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  atlassian-python-api (Jira Client)                                        │
-│  ──────────────────────────────────                                        │
-│  • Third-party library wrapping Jira REST API                              │
+│  JiraClient (lib/client.py) → extends atlassian-python-api                 │
+│  ─────────────────────────────────────────────────                         │
+│  • Thin subclass of atlassian.Jira with upstream bug workaround            │
+│  • Fixes missing MIME type in multipart attachment uploads                  │
 │  • Handles authentication (Cloud or Server/DC)                             │
 │  • Returns JSON responses                                                  │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -408,6 +409,25 @@ ROUTES_REQUIRING_KEY = {
 - Credentials stored in `~/.env.jira` (chmod 600 recommended)
 - Server binds to localhost only (`127.0.0.1:9200`)
 - No secrets in logs or error messages
+
+## Upstream Workarounds
+
+### Attachment MIME type (lib/client.py)
+
+`atlassian-python-api` passes file objects to `requests` using the simple form
+`files={"file": fobj}`. With `urllib3` 2.x, this no longer auto-sets the per-part
+`Content-Type` header, so Jira receives attachments without MIME type metadata —
+PDFs render as raw binary, images won't preview, etc.
+
+`JiraClient` subclasses `atlassian.Jira` and overrides `add_attachment_object()` to
+use the explicit tuple form `(filename, fobj, content_type)` with MIME type guessed
+via `mimetypes.guess_type()`.
+
+**Upstream references:**
+- [atlassian-python-api #514](https://github.com/atlassian-api/atlassian-python-api/issues/514) — closed without fix
+- [JRACLOUD-72884](https://jira.atlassian.com/browse/JRACLOUD-72884) — Jira confirms attachments without MIME type won't display
+
+**Remove when:** upstream `add_attachment_object()` passes Content-Type in the file tuple.
 
 ## Performance
 

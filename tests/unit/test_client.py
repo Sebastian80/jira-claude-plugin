@@ -36,7 +36,7 @@ def cloud_env_file(tmp_path):
     return str(env_file)
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_pat_auth_passes_timeout(mock_jira_cls, pat_env_file):
     """Verify timeout=30 is passed to Jira constructor for PAT auth."""
     mock_jira_cls.return_value = MagicMock()
@@ -51,7 +51,7 @@ def test_pat_auth_passes_timeout(mock_jira_cls, pat_env_file):
     )
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_cloud_auth_passes_timeout(mock_jira_cls, cloud_env_file):
     """Verify timeout=30 is passed to Jira constructor for cloud auth."""
     mock_jira_cls.return_value = MagicMock()
@@ -67,7 +67,7 @@ def test_cloud_auth_passes_timeout(mock_jira_cls, cloud_env_file):
     )
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_pat_auth_from_env_vars(mock_jira_cls, tmp_path, monkeypatch):
     """PAT config via environment variables should work without a file."""
     monkeypatch.setattr("jira.lib.config.DEFAULT_ENV_FILE", tmp_path / "nonexistent")
@@ -85,7 +85,7 @@ def test_pat_auth_from_env_vars(mock_jira_cls, tmp_path, monkeypatch):
     )
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_cloud_auto_detected_from_atlassian_url(mock_jira_cls, tmp_path):
     """JIRA_CLOUD should be auto-detected when URL contains .atlassian.net."""
     env_file = tmp_path / ".env.jira"
@@ -107,7 +107,7 @@ def test_cloud_auto_detected_from_atlassian_url(mock_jira_cls, tmp_path):
     )
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_non_atlassian_url_defaults_to_not_cloud(mock_jira_cls, tmp_path):
     """Without JIRA_CLOUD, non-atlassian URLs should default to cloud=False."""
     env_file = tmp_path / ".env.jira"
@@ -127,7 +127,7 @@ def test_non_atlassian_url_defaults_to_not_cloud(mock_jira_cls, tmp_path):
     )
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_explicit_cloud_overrides_url_detection(mock_jira_cls, tmp_path):
     """JIRA_CLOUD=true should force cloud mode even for non-atlassian URLs."""
     env_file = tmp_path / ".env.jira"
@@ -184,7 +184,7 @@ def test_explicit_missing_file_raises_file_not_found():
         get_jira_client(env_file="/nonexistent/path/.env.jira")
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_jira_connection_error_wraps_as_connection_error_pat(mock_jira_cls, pat_env_file):
     """Connection failures should be wrapped as ConnectionError with PAT context."""
     mock_jira_cls.side_effect = Exception("Connection refused")
@@ -193,7 +193,7 @@ def test_jira_connection_error_wraps_as_connection_error_pat(mock_jira_cls, pat_
         get_jira_client(env_file=pat_env_file)
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_jira_connection_error_wraps_as_connection_error_cloud(mock_jira_cls, cloud_env_file):
     """Connection failures should be wrapped as ConnectionError with cloud context."""
     mock_jira_cls.side_effect = Exception("Connection refused")
@@ -202,7 +202,7 @@ def test_jira_connection_error_wraps_as_connection_error_cloud(mock_jira_cls, cl
         get_jira_client(env_file=cloud_env_file)
 
 
-@patch("jira.lib.client.Jira")
+@patch("jira.lib.client.JiraClient")
 def test_returns_jira_client_instance(mock_jira_cls, pat_env_file):
     """Should return the Jira client instance on success."""
     sentinel = MagicMock()
