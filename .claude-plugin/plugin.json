@@ -1,0 +1,9 @@
+{
+  "name": "jira",
+  "version": "3.3.0",
+  "description": "Standalone Jira CLI for issue tracking and workflow automation",
+  "author": {
+    "name": "Sebastian80"
+  },
+  "license": "MIT"
+}
