@@ -86,7 +86,7 @@ ensure_venv() {
     else
         # Re-install if plugin version changed (e.g. after /plugin update)
         local plugin_version installed_version
-        plugin_version=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/plugin.json'))['version'])" 2>/dev/null)
+        plugin_version=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
         installed_version=$("$VENV_DIR/bin/pip" show jira-cli 2>/dev/null | sed -n 's/^Version: //p')
         if [[ -n "$plugin_version" && "$plugin_version" != "$installed_version" ]]; then
             log "Upgrading jira-cli $installed_version -> $plugin_version..."
