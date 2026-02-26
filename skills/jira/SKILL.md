@@ -49,6 +49,16 @@ jira attachment PROJ-123 --file report.pdf   # Upload file
 jira attachment PROJ-123 --file a.pdf --file b.png  # Upload multiple
 jira attachment 12345 -X DELETE              # Delete attachment
 
+# Links
+jira link --from PROJ-123 --to PROJ-456 --type "Relation"  # Link issues
+jira links PROJ-123                          # List links on issue
+jira linktypes                               # List available link types
+
+# Sprints
+jira sprint active PROJ                      # Get active sprint
+jira sprint 915 --issue PROJ-123             # Add issue to sprint
+jira sprint 915 --issue PROJ-123 -X DELETE   # Remove from sprint
+
 # Help
 jira help                                    # Full command list
 jira help search                             # Command-specific help
@@ -129,6 +139,7 @@ h2. Actual
 - Never write to two tickets simultaneously — parallel writes cause data corruption
 - After any write operation, re-fetch the ticket to verify the content was placed correctly
 - Never use temp files for Jira content — pipe directly to avoid collisions
+- Unknown flags on `jira issue` are silently ignored — the GET response looks like success. Use dedicated commands (`jira link`, `jira sprint`) instead of flags on the issue endpoint
 
 ## References
 

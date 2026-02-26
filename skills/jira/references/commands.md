@@ -69,11 +69,26 @@ jira worklog PROJ-123 12345                   # Get specific worklog
 # Issue links
 jira links PROJ-123                           # List issue links
 jira linktypes                                # Available link types
-jira link --from PROJ-1 --to PROJ-2 --type Blocks
+jira link --from PROJ-1 --to PROJ-2 --type "Relation"
 
 # Web links
 jira weblinks PROJ-123                        # List web/remote links
 jira weblink PROJ-123 --url "https://..." --title "Link title"
+```
+
+**Link type names** (use the name, NOT the description):
+`Relation`, `Blockade`, `Cause`, `Duplicate`, `Resolve`, `Mention`, etc.
+Use `jira linktypes` to see all available types on your instance.
+
+## Sprints
+
+```bash
+jira sprint active PROJ                       # Get active sprint for project
+jira sprint 915                               # Get sprint details
+jira sprint 915 --issue PROJ-123              # Add issue to sprint
+jira sprint 915 --issue PROJ-123 -X DELETE    # Remove issue from sprint
+jira sprints 119                              # List sprints for board
+jira sprints 119 --state active               # Filter by state
 ```
 
 ## Attachments
