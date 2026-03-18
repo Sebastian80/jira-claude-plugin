@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from ..deps import jira
-from ..response import success, error, formatted, jira_error_handler
+from ..response import success, error, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -26,9 +26,9 @@ class UploadRequest(BaseModel):
 
 @router.get("/attachments/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def list_attachments(
+def list_attachments(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List attachments on issue."""
@@ -39,23 +39,27 @@ async def list_attachments(
 
 @router.post("/attachment/{key}")
 @jira_error_handler(not_found="Issue {key} not found", forbidden="Permission denied")
-async def upload_attachment(
+def upload_attachment(
     key: str,
     body: UploadRequest,
     client=Depends(jira),
 ):
     """Upload attachment(s) to issue from local file paths."""
-    results = []
+    # Validate all files before uploading any
     for file_path in body.files:
         path = Path(file_path)
         if not path.is_file():
             return error(f"File not found: {file_path}", status=404)
-        if path.stat().st_size > MAX_UPLOAD_SIZE:
+        file_size = path.stat().st_size
+        if file_size > MAX_UPLOAD_SIZE:
             return error(
-                f"File too large: {path.name} ({path.stat().st_size} bytes). "
+                f"File too large: {path.name} ({file_size} bytes). "
                 f"Maximum upload size is {MAX_UPLOAD_SIZE // (1024 * 1024)}MB.",
                 status=413,
             )
+
+    results = []
+    for file_path in body.files:
         result = client.add_attachment(issue_key=key, filename=file_path)
         results.extend(result)
     return success(results)
@@ -63,7 +67,7 @@ async def upload_attachment(
 
 @router.delete("/attachment/{attachment_id}")
 @jira_error_handler(not_found="Attachment {attachment_id} not found", forbidden="Permission denied")
-async def delete_attachment(attachment_id: str, client=Depends(jira)):
+def delete_attachment(attachment_id: str, client=Depends(jira)):
     """Delete attachment."""
     client.remove_attachment(attachment_id)
     return success({"attachment_id": attachment_id, "deleted": True})

@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from ..deps import jira
-from ..response import success, error, formatted, jira_error_handler
+from ..response import success, error, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -25,10 +25,10 @@ class SprintIssuesBody(BaseModel):
 
 @router.get("/boards")
 @jira_error_handler(not_found="No boards found")
-async def list_boards(
+def list_boards(
     project: str | None = Query(None, description="Filter by project key"),
     board_type: str | None = Query(None, alias="type", description="Filter by type: scrum, kanban"),
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List all boards."""
@@ -45,7 +45,7 @@ async def list_boards(
 
 @router.get("/sprints/{board_id}")
 @jira_error_handler(not_found="Board {board_id} not found")
-async def list_sprints(
+def list_sprints(
     board_id: int,
     state: str | None = Query(None, description="Filter by state: active, future, closed"),
     client=Depends(jira),
@@ -61,7 +61,7 @@ async def list_sprints(
 
 @router.get("/sprint/{sprint_id}")
 @jira_error_handler(not_found="Sprint {sprint_id} not found")
-async def get_sprint(
+def get_sprint(
     sprint_id: int,
     client=Depends(jira),
 ):
@@ -72,7 +72,7 @@ async def get_sprint(
 
 @router.post("/sprint/{sprint_id}/issues")
 @jira_error_handler(not_found="Sprint {sprint_id} not found")
-async def add_issues_to_sprint(sprint_id: int, body: SprintIssuesBody, client=Depends(jira)):
+def add_issues_to_sprint(sprint_id: int, body: SprintIssuesBody, client=Depends(jira)):
     """Add issues to a sprint."""
     issue_keys = [k.strip() for k in body.issues.split(",")]
 
@@ -85,7 +85,7 @@ async def add_issues_to_sprint(sprint_id: int, body: SprintIssuesBody, client=De
 
 @router.delete("/sprint/{sprint_id}/issues")
 @jira_error_handler()
-async def remove_issues_from_sprint(
+def remove_issues_from_sprint(
     sprint_id: int,
     issues: str = Query(..., description="Comma-separated issue keys to remove"),
     client=Depends(jira),
@@ -103,7 +103,7 @@ async def remove_issues_from_sprint(
 
 @router.get("/sprint/active/{project}")
 @jira_error_handler(not_found="No boards found for project {project}")
-async def get_active_sprint(
+def get_active_sprint(
     project: str,
     client=Depends(jira),
 ):
@@ -113,7 +113,7 @@ async def get_active_sprint(
     board_list = boards.get("values", [])
 
     if not board_list:
-        return error(f"No boards found for project {project}")
+        return error(f"No boards found for project {project}", status=404)
 
     # Get active sprint from first board
     board_id = board_list[0]["id"]
@@ -124,6 +124,6 @@ async def get_active_sprint(
     sprint_list = sprints.get("values", [])
 
     if not sprint_list:
-        return error(f"No active sprint found for project {project}")
+        return error(f"No active sprint found for project {project}", status=404)
 
     return success(sprint_list[0])

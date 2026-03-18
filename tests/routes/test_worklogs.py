@@ -9,7 +9,7 @@ Endpoints tested:
 
 import pytest
 
-from helpers import TEST_PROJECT, TEST_ISSUE, run_cli, get_data, run_cli_raw
+from helpers import TEST_PROJECT, TEST_ISSUE, run_cli, get_data, run_cli_raw, get_mock_client
 
 
 class TestListWorklogs:
@@ -88,13 +88,11 @@ class TestWorklogHelp:
 class TestAddWorklog:
     """Test /worklog/{key} POST endpoint."""
 
-
     def test_add_worklog(self):
         """Should add worklog to issue."""
         result = run_cli("jira", "worklog", TEST_ISSUE, "--timeSpent", "1h")
         data = get_data(result)
         assert "id" in data or data.get("success") is True
-
 
     def test_add_worklog_with_comment(self):
         """Should add worklog with comment."""
@@ -102,6 +100,32 @@ class TestAddWorklog:
                         "--timeSpent", "30m", "--comment", "Test work")
         data = get_data(result)
         assert "id" in data or data.get("success") is True
+
+    def test_add_worklog_default_started_uses_user_timezone(self):
+        """Default started timestamp should use the Jira user's timezone."""
+        import re
+        from datetime import datetime, timezone
+
+        mock = get_mock_client()
+        mock._call_log.clear()
+
+        run_cli("jira", "worklog", TEST_ISSUE, "--timeSpent", "1h")
+
+        worklog_calls = [c for c in mock._call_log if c[0] == "issue_add_json_worklog"]
+        assert worklog_calls, "Expected issue_add_json_worklog call"
+
+        started = worklog_calls[0][2]["started"]
+
+        # Should be a valid Jira timestamp with timezone offset
+        assert re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000[+-]\d{4}$", started), \
+            f"Invalid timestamp format: {started}"
+
+        # Should be close to now (within 5 seconds)
+        # Parse with timezone info
+        parsed = datetime.strptime(started, "%Y-%m-%dT%H:%M:%S.000%z")
+        utc_now = datetime.now(timezone.utc)
+        delta = abs((utc_now - parsed).total_seconds())
+        assert delta < 5, f"Timestamp {started} is {delta}s from now"
 
 
 class TestWorklogEdgeCases:

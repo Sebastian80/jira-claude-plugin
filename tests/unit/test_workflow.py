@@ -180,12 +180,22 @@ class TestWorkflowGraph:
         path = graph.path_to("open", "Open")
         assert path == []
 
-    def test_path_partial_match_on_transition_name(self):
-        """Target can partially match transition name."""
+    def test_path_no_partial_match(self):
+        """path_to should use exact case-insensitive matching, not partial."""
         graph = _make_simple_graph()
-        path = graph.path_to("Open", "start")
+        with pytest.raises(PathNotFoundError):
+            graph.path_to("Open", "start")
+
+    def test_path_no_dangerous_fuzzy_match(self):
+        """Searching for 'done' should not match 'Not Done'."""
+        graph = WorkflowGraph(issue_type="Task", issue_type_id="1")
+        graph.add_state("Open", [
+            Transition(id="1", name="Reject", to="Not Done"),
+            Transition(id="2", name="Finish", to="Done"),
+        ])
+        path = graph.path_to("Open", "done")
         assert len(path) == 1
-        assert path[0].name == "Start Progress"
+        assert path[0].to == "Done"
 
     def test_path_not_found_raises(self):
         graph = WorkflowGraph(issue_type="Task", issue_type_id="1")

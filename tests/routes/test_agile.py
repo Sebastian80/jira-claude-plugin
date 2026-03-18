@@ -159,6 +159,48 @@ class TestAgileHTTPErrors:
         assert "not found" in data["error"].lower()
 
 
+class TestActiveSprintNotFound:
+    """Test active sprint returns 404 when not found."""
+
+    def test_no_boards_returns_404(self):
+        """Should return 404, not 400, when no boards found for project."""
+        from helpers import _test_client, get_mock_client
+        from unittest.mock import patch
+
+        mock = get_mock_client()
+        original_get = mock.get
+
+        def empty_boards_get(url, **kwargs):
+            if "agile" in url and "board" in url and "sprint" not in url:
+                return {"values": []}
+            return original_get(url, **kwargs)
+
+        with patch.object(mock, "get", side_effect=empty_boards_get):
+            response = _test_client.get("/jira/sprint/active/NONEXISTENT_PROJECT")
+        assert response.status_code == 404, f"Expected 404, got {response.status_code}"
+
+    def test_no_active_sprint_returns_404(self):
+        """Should return 404, not 400, when no active sprint exists."""
+        from helpers import _test_client, get_mock_client
+        from unittest.mock import patch
+
+        mock = get_mock_client()
+        original_get = mock.get
+
+        call_count = [0]
+        def no_active_sprint_get(url, **kwargs):
+            if "agile" in url and "board" in url and "sprint" not in url:
+                return original_get(url, **kwargs)  # Return boards normally
+            if "agile" in url and "sprint" in url:
+                call_count[0] += 1
+                return {"values": []}  # No active sprints
+            return original_get(url, **kwargs)
+
+        with patch.object(mock, "get", side_effect=no_active_sprint_get):
+            response = _test_client.get("/jira/sprint/active/HMKG")
+        assert response.status_code == 404, f"Expected 404, got {response.status_code}"
+
+
 class TestAgileEdgeCases:
     """Test edge cases for agile endpoints."""
 

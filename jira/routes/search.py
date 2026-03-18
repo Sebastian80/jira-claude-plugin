@@ -9,11 +9,11 @@ Endpoints:
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import formatted, formatted_error, get_status_code, is_status
+from ..response import formatted, formatted_error, get_status_code, is_status, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -47,12 +47,12 @@ def preprocess_jql(jql: str) -> str:
 
 
 @router.get("/search")
-async def search(
+def search(
     jql: str = Query(..., description="JQL query string"),
     max_results: int = Query(50, alias="maxResults", ge=1, le=100, description="Maximum results (1-100)"),
     start_at: int = Query(0, alias="startAt", ge=0, description="Index of first result (for pagination)"),
     fields: str = Query("key,summary,status,assignee,priority,issuetype", description="Comma-separated fields"),
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Search issues using JQL query."""
@@ -70,7 +70,8 @@ async def search(
         issues = results.get("issues", [])
 
         if format == "json":
-            return {
+            from fastapi.responses import JSONResponse
+            return JSONResponse(content={
                 "success": True,
                 "data": issues,
                 "pagination": {
@@ -79,7 +80,7 @@ async def search(
                     "total": results.get("total", len(issues)),
                     "returned": len(issues),
                 },
-            }
+            })
         return formatted(issues, format, "search")
     except HTTPError as e:
         hint = "Check JQL syntax"

@@ -189,9 +189,9 @@ ADDED_COMMENT = {
 # =============================================================================
 
 TRANSITIONS = [
-    {"id": "11", "name": "Start Progress", "to": "In Progress"},
-    {"id": "21", "name": "Close", "to": "Done"},
-    {"id": "31", "name": "Resolve", "to": "Resolved"},
+    {"id": 11, "name": "Start Progress", "to": "In Progress"},
+    {"id": 21, "name": "Close", "to": "Done"},
+    {"id": 31, "name": "Resolve", "to": "Resolved"},
 ]
 
 # =============================================================================

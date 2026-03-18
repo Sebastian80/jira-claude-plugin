@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from ..deps import jira
-from ..response import success, error, formatted, jira_error_handler
+from ..lib.workflow import WorkflowError
+from ..response import success, error, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -24,9 +25,9 @@ class TransitionBody(BaseModel):
 
 @router.get("/transitions/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def list_transitions(
+def list_transitions(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List available transitions for an issue."""
@@ -35,7 +36,7 @@ async def list_transitions(
 
 
 @router.post("/transition/{key}")
-async def do_transition(key: str, body: TransitionBody, client=Depends(jira)):
+def do_transition(key: str, body: TransitionBody, client=Depends(jira)):
     """Transition issue to target state (smart multi-step)."""
     try:
         from ..lib.workflow import smart_transition
@@ -59,8 +60,7 @@ async def do_transition(key: str, body: TransitionBody, client=Depends(jira)):
             "steps": len(executed),
             "final_state": final_state,
         })
+    except WorkflowError as e:
+        return error(str(e), hint="Use 'jira transitions ISSUE' to see available states")
     except Exception as e:
-        error_msg = str(e)
-        if "path" in error_msg.lower() or "reachable" in error_msg.lower():
-            return error(f"No path to '{body.target}'", hint="Use 'jira transitions ISSUE' to see available states")
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=500, detail=str(e))

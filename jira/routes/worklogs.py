@@ -12,8 +12,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from ..deps import jira
-from ..response import success, formatted, jira_error_handler
+from ..deps import jira, user_timezone
+from ..response import success, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -26,9 +26,9 @@ class AddWorklogBody(BaseModel):
 
 @router.get("/worklogs/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def list_worklogs(
+def list_worklogs(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List worklogs on issue."""
@@ -42,7 +42,7 @@ async def list_worklogs(
     not_found="Issue {key} not found",
     bad_request="Invalid time format. Use format like '2h', '1d 4h', '30m'",
 )
-async def add_worklog(key: str, body: AddWorklogBody, client=Depends(jira)):
+def add_worklog(key: str, body: AddWorklogBody, client=Depends(jira)):
     """Add worklog to issue."""
     # Validate timeSpent is not empty
     if not body.timeSpent or not body.timeSpent.strip():
@@ -55,8 +55,10 @@ async def add_worklog(key: str, body: AddWorklogBody, client=Depends(jira)):
     if body.started:
         worklog["started"] = body.started
     else:
-        # Default to now in Jira's expected format
-        worklog["started"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0000")
+        # Default to now in the user's Jira timezone
+        now = datetime.now(user_timezone())
+        worklog["started"] = now.strftime("%Y-%m-%dT%H:%M:%S.000%z")
+        # Format %z gives +0100, Jira expects +0100 (no colon) — already correct
 
     result = client.issue_add_json_worklog(key, worklog)
     return success(result)
@@ -64,10 +66,10 @@ async def add_worklog(key: str, body: AddWorklogBody, client=Depends(jira)):
 
 @router.get("/worklog/{key}/{worklog_id}")
 @jira_error_handler(not_found="Worklog {worklog_id} not found on issue {key}")
-async def get_worklog(
+def get_worklog(
     key: str,
     worklog_id: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get specific worklog by ID."""

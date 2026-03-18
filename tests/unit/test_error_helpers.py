@@ -72,5 +72,27 @@ class TestIsStatus:
         assert is_status(Exception("fail"), 404) is False
 
 
+class TestJiraErrorHandlerTemplateSafety:
+    """Tests for jira_error_handler template resolution."""
+
+    def test_template_with_missing_variable_does_not_crash(self):
+        """Template referencing {name} should not KeyError when name not in context."""
+        from jira.response import jira_error_handler
+        from requests import HTTPError
+        from requests.models import Response
+
+        @jira_error_handler(not_found="Thing '{name}' not found in {project}")
+        def handler(key: str):
+            # Simulate a 404 from Jira API
+            response = Response()
+            response.status_code = 404
+            response._content = b"Not Found"
+            raise HTTPError(response=response)
+
+        response = handler(key="TEST-1")
+        # Should get a response (error or fallback), not a 500 from KeyError
+        assert response.status_code != 500, "Template KeyError should not cause a 500"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

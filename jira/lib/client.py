@@ -2,7 +2,7 @@
 
 import mimetypes
 import os
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from atlassian import Jira
 
@@ -26,7 +26,7 @@ class JiraClient(Jira):
         files = {"file": (basename, attachment, content_type)}
         return self.post(url, headers=self.no_check_headers, files=files)
 
-def get_jira_client(env_file: Optional[str] = None) -> Jira:
+def get_jira_client(env_file: str | None = None) -> Jira:
     """Initialize and return a Jira client.
 
     Supports two authentication modes:

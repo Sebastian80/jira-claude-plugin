@@ -2,8 +2,6 @@
 
 import os
 from pathlib import Path
-from typing import Optional
-
 DEFAULT_ENV_FILE = Path.home() / ".env.jira"
 
 # Cloud authentication: JIRA_USERNAME + JIRA_API_TOKEN
@@ -15,7 +13,7 @@ OPTIONAL_VARS = ['JIRA_CLOUD']
 ALL_VARS = [REQUIRED_URL] + CLOUD_VARS + SERVER_VARS + OPTIONAL_VARS
 
 
-def load_env(env_file: Optional[str] = None) -> dict:
+def load_env(env_file: str | None = None) -> dict:
     """Load configuration from file with environment variable fallback.
 
     Priority order:

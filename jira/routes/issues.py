@@ -15,9 +15,30 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_validator
 
 from ..deps import jira
-from ..response import success, formatted, jira_error_handler
+from ..response import success, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
+
+
+def _apply_optional_fields(body, fields: dict) -> None:
+    """Apply shared optional fields (description, priority, labels, assignee, custom) to a fields dict."""
+    if body.description is not None:
+        fields["description"] = body.description
+    if body.priority is not None:
+        fields["priority"] = {"name": body.priority}
+    if body.labels is not None:
+        fields["labels"] = [label.strip() for label in body.labels.split(",")]
+    if body.assignee is not None:
+        if "@" in body.assignee:
+            fields["assignee"] = {"emailAddress": body.assignee}
+        else:
+            fields["assignee"] = {"name": body.assignee}
+    if body.custom is not None:
+        try:
+            custom_fields = json.loads(body.custom)
+            fields.update(custom_fields)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
 
 
 class CreateIssueBody(BaseModel):
@@ -42,19 +63,19 @@ class UpdateIssueBody(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        if not any([self.summary, self.description, self.priority,
-                     self.labels, self.assignee, self.custom]):
+        if all(v is None for v in [self.summary, self.description, self.priority,
+                                    self.labels, self.assignee, self.custom]):
             raise ValueError("At least one field must be provided")
         return self
 
 
 @router.get("/issue/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def get_issue(
+def get_issue(
     key: str,
     fields: str | None = Query(None, description="Comma-separated fields to return"),
     expand: str | None = Query(None, description="Fields to expand (e.g., 'changelog')"),
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get issue details by key."""
@@ -70,32 +91,16 @@ async def get_issue(
 
 @router.post("/create")
 @jira_error_handler()
-async def create_issue(body: CreateIssueBody, client=Depends(jira)):
+def create_issue(body: CreateIssueBody, client=Depends(jira)):
     """Create new issue in Jira."""
     issue_fields = {
         "project": {"key": body.project},
         "summary": body.summary,
         "issuetype": {"name": body.type},
     }
-    if body.description:
-        issue_fields["description"] = body.description
-    if body.priority:
-        issue_fields["priority"] = {"name": body.priority}
-    if body.labels:
-        issue_fields["labels"] = [label.strip() for label in body.labels.split(",")]
-    if body.assignee:
-        if "@" in body.assignee:
-            issue_fields["assignee"] = {"emailAddress": body.assignee}
-        else:
-            issue_fields["assignee"] = {"name": body.assignee}
-    if body.parent:
+    if body.parent is not None:
         issue_fields["parent"] = {"key": body.parent}
-    if body.custom:
-        try:
-            custom_fields = json.loads(body.custom)
-            issue_fields.update(custom_fields)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
+    _apply_optional_fields(body, issue_fields)
 
     result = client.create_issue(fields=issue_fields)
     return success(result)
@@ -103,25 +108,22 @@ async def create_issue(body: CreateIssueBody, client=Depends(jira)):
 
 @router.get("/show/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def show_issue(
+def show_issue(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get issue with comments combined in one view."""
     # Fetch issue with comment field included
     issue = client.issue(key, fields="*all,comment")
 
-    # Extract comments from issue response
-    comments = issue.get("fields", {}).get("comment", {}).get("comments", [])
+    # Extract comments, then build issue without comment field to avoid duplication
+    fields = issue.get("fields", {})
+    comments = fields.get("comment", {}).get("comments", [])
+    issue_without_comments = {**issue, "fields": {k: v for k, v in fields.items() if k != "comment"}}
 
-    # Remove comments from fields to avoid duplication
-    if "fields" in issue and "comment" in issue["fields"]:
-        del issue["fields"]["comment"]
-
-    # Combine into single response
     combined = {
-        "issue": issue,
+        "issue": issue_without_comments,
         "comments": list(reversed(comments)),  # Most recent first
     }
     return formatted(combined, format, "show")
@@ -129,7 +131,7 @@ async def show_issue(
 
 @router.delete("/delete/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def delete_issue(
+def delete_issue(
     key: str,
     client=Depends(jira),
 ):
@@ -140,29 +142,12 @@ async def delete_issue(
 
 @router.patch("/issue/{key}")
 @jira_error_handler()
-async def update_issue(key: str, body: UpdateIssueBody, client=Depends(jira)):
+def update_issue(key: str, body: UpdateIssueBody, client=Depends(jira)):
     """Update issue fields."""
     update_fields = {}
-
-    if body.summary:
+    if body.summary is not None:
         update_fields["summary"] = body.summary
-    if body.description:
-        update_fields["description"] = body.description
-    if body.priority:
-        update_fields["priority"] = {"name": body.priority}
-    if body.labels:
-        update_fields["labels"] = [label.strip() for label in body.labels.split(",")]
-    if body.assignee:
-        if "@" in body.assignee:
-            update_fields["assignee"] = {"emailAddress": body.assignee}
-        else:
-            update_fields["assignee"] = {"name": body.assignee}
-    if body.custom:
-        try:
-            custom_fields = json.loads(body.custom)
-            update_fields.update(custom_fields)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON in custom fields: {e}")
+    _apply_optional_fields(body, update_fields)
 
     client.update_issue_field(key, update_fields)
     return success({"key": key, "updated": list(update_fields.keys())})

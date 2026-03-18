@@ -177,6 +177,36 @@ class TestUploadSizeLimit:
             os.unlink(temp_file)
 
 
+class TestUploadValidatesAllFilesFirst:
+    """Test that all files are validated before any upload begins."""
+
+    def test_valid_file_not_uploaded_when_later_file_missing(self):
+        """If file #2 doesn't exist, file #1 should not be uploaded."""
+        import tempfile
+        import os
+        from helpers import _test_client, get_mock_client
+
+        mock = get_mock_client()
+        mock._call_log.clear()
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("Valid file content")
+            valid_file = f.name
+
+        try:
+            response = _test_client.post(
+                "/jira/attachment/HMKG-2062",
+                json={"files": [valid_file, "/nonexistent/fake_file.txt"]},
+            )
+            assert response.status_code == 404
+
+            # Verify no upload happened for the valid file
+            upload_calls = [c for c in mock._call_log if c[0] == "add_attachment"]
+            assert len(upload_calls) == 0, "Valid file was uploaded before invalid file was detected"
+        finally:
+            os.unlink(valid_file)
+
+
 class TestAttachmentEdgeCases:
     """Test edge cases for attachments."""
 

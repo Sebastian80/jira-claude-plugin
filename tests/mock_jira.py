@@ -299,8 +299,8 @@ class MockJiraClient:
             raise make_http_error(404, f"Project {project} not found")
         return deepcopy(VERSIONS)
 
-    def create_version(self, name: str, project: str, description: str | None = None, released: bool = False) -> dict:
-        self._call_log.append(("create_version", name, project))
+    def add_version(self, project_key: str, project_id: str | int, version: str, is_archived: bool = False, is_released: bool = False) -> dict:
+        self._call_log.append(("add_version", project_key, project_id, version))
         return deepcopy(CREATED_VERSION)
 
     def get_version(self, version_id: str) -> dict:
@@ -309,10 +309,10 @@ class MockJiraClient:
             raise make_http_error(404, f"Version {version_id} not found")
         return deepcopy(VERSION)
 
-    def update_version(self, version_id: str, **kwargs) -> dict:
-        self._call_log.append(("update_version", version_id, kwargs))
-        if _is_nonexistent(version_id):
-            raise make_http_error(404, f"Version {version_id} not found")
+    def update_version(self, version: str, name: str | None = None, description: str | None = None, is_archived: bool | None = None, is_released: bool | None = None, start_date: str | None = None, release_date: str | None = None) -> dict:
+        self._call_log.append(("update_version", version, {"name": name, "description": description, "is_released": is_released}))
+        if _is_nonexistent(version):
+            raise make_http_error(404, f"Version {version} not found")
         return deepcopy(VERSION)
 
     # =========================================================================

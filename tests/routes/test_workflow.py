@@ -74,5 +74,19 @@ class TestExecuteTransition:
         assert data.get("steps") >= 1
 
 
+class TestTransitionUnreachableState:
+    """Test transition error when target is unreachable."""
+
+    def test_unreachable_target_returns_error(self):
+        """Should return user-friendly error when target state is unreachable."""
+        stdout, stderr, code = run_cli_raw(
+            "jira", "transition", TEST_ISSUE,
+            "--target", "NONEXISTENT_STATE_XYZZY",
+        )
+        assert code != 0
+        stdout_lower = stdout.lower()
+        assert "no path" in stdout_lower or "error" in stdout_lower
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

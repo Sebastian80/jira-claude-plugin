@@ -4,10 +4,9 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +82,8 @@ class WorkflowGraph:
     issue_type: str
     issue_type_id: str
     states: dict[str, list[Transition]] = field(default_factory=dict)
-    discovered_from: Optional[str] = None
-    discovered_at: Optional[datetime] = None
+    discovered_from: str | None = None
+    discovered_at: datetime | None = None
 
     def transitions_from(self, state: str) -> list[Transition]:
         """Get available transitions from a state."""
@@ -108,7 +107,7 @@ class WorkflowGraph:
 
         Args:
             from_state: Starting state name
-            to_state: Target state name (case-insensitive, partial match on transition name)
+            to_state: Target state name (exact, case-insensitive)
 
         Returns:
             List of Transitions to execute in order
@@ -131,10 +130,8 @@ class WorkflowGraph:
             current, path = queue.popleft()
 
             for transition in self.transitions_from(current):
-                # Check if this transition reaches target
-                if (transition.to.lower() == to_lower or
-                    to_lower in transition.to.lower() or
-                    to_lower in transition.name.lower()):
+                # Check if this transition reaches target (exact, case-insensitive)
+                if transition.to.lower() == to_lower:
                     return path + [transition]
 
                 # Continue BFS if not visited
@@ -229,7 +226,7 @@ class WorkflowGraph:
 class WorkflowStore:
     """Persistence layer for workflow graphs."""
 
-    def __init__(self, path: Optional[Path] = None):
+    def __init__(self, path: Path | None = None):
         if path is None:
             # Default to references/workflows.json relative to this file
             path = Path(__file__).parent.parent.parent / "references" / "workflows.json"
@@ -246,7 +243,7 @@ class WorkflowStore:
 
     def _save(self) -> None:
         """Save workflows to JSON file."""
-        self._data["_meta"]["updated_at"] = datetime.now().isoformat()
+        self._data["_meta"]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Ensure parent directory exists
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -257,7 +254,7 @@ class WorkflowStore:
             json.dump(self._data, f, indent=2)
         tmp_path.rename(self.path)
 
-    def get(self, issue_type: str) -> Optional[WorkflowGraph]:
+    def get(self, issue_type: str) -> WorkflowGraph | None:
         """Load workflow for issue type, or None if not found."""
         if issue_type not in self._data.get("issue_types", {}):
             return None
@@ -314,7 +311,7 @@ def discover_workflow(client, issue_key: str, verbose: bool = False) -> Workflow
         issue_type=issue_type,
         issue_type_id=issue_type_id,
         discovered_from=issue_key,
-        discovered_at=datetime.now()
+        discovered_at=datetime.now(timezone.utc)
     )
 
     # BFS through all states
@@ -390,7 +387,7 @@ def discover_workflow(client, issue_key: str, verbose: bool = False) -> Workflow
             path = graph.path_to(current, original_state)
             for t in path:
                 client.set_issue_status(issue_key, t.to)
-    except (PathNotFoundError, Exception) as e:
+    except Exception as e:
         if verbose:
             print(f"    Warning: Could not return to original state: {e}")
 
@@ -426,7 +423,6 @@ def smart_transition(
         client: Jira client instance
         issue_key: Issue to transition
         target_state: Target state name (case-insensitive match)
-        store: IGNORED - kept for backward compatibility
         add_comment: Add comment trail after transition
         dry_run: Show path without executing
         verbose: Print progress

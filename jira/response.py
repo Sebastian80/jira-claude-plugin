@@ -4,14 +4,19 @@ Response formatting utilities.
 Handles JSON and text formatting for API responses.
 """
 
+import collections
 import functools
 import inspect
 import logging
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 from requests import HTTPError
+
+# Output format type — single source of truth for all routes
+OutputFormat = Literal["json", "rich", "ai", "markdown"]
+FORMAT_QUERY = Query("json", description="Output format: json, rich, ai, markdown")
 
 from .formatters import formatter_registry, RichFormatter, AIFormatter, MarkdownFormatter
 
@@ -28,9 +33,6 @@ def get_status_code(e: Exception) -> int | None:
 def is_status(e: Exception, code: int) -> bool:
     """Check if an exception represents a specific HTTP status code."""
     return get_status_code(e) == code
-
-# Valid format values
-VALID_FORMATS = {"json", "rich", "ai", "markdown"}
 
 # Default formatters for error messages
 _DEFAULT_FORMATTERS = {
@@ -53,19 +55,8 @@ def error(message: str, hint: str | None = None, status: int = 400) -> JSONRespo
     return JSONResponse(status_code=status, content=content)
 
 
-def formatted(data: Any, fmt: str, data_type: str | None = None):
+def formatted(data: Any, fmt: OutputFormat, data_type: str | None = None):
     """Return response in requested format."""
-    # Validate format parameter
-    if fmt not in VALID_FORMATS:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": f"Invalid format '{fmt}'",
-                "hint": f"Valid formats: {', '.join(sorted(VALID_FORMATS))}"
-            }
-        )
-
     if fmt == "json":
         return JSONResponse(content={"success": True, "data": data})
 
@@ -74,7 +65,12 @@ def formatted(data: Any, fmt: str, data_type: str | None = None):
         formatter = formatter_registry.get(fmt)
 
     if formatter is None:
-        return JSONResponse(content={"success": True, "data": data})
+        logger.debug("No %s formatter for data_type=%s, falling back to JSON", fmt, data_type)
+        return JSONResponse(content={
+            "success": True,
+            "data": data,
+            "hint": f"No '{fmt}' formatter for '{data_type}' — showing JSON",
+        })
 
     return PlainTextResponse(content=formatter.format(data))
 
@@ -121,9 +117,9 @@ def jira_error_handler(
         has_format = "format" in sig.parameters
 
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs):
             try:
-                return await func(*args, **kwargs)
+                return func(*args, **kwargs)
             except HTTPError as e:
                 status = get_status_code(e)
                 template = status_map.get(status)
@@ -134,7 +130,7 @@ def jira_error_handler(
                         if hasattr(v, "model_dump"):
                             for field, val in v.model_dump().items():
                                 ctx.setdefault(field, val)
-                    msg = template.format(**ctx)
+                    msg = template.format_map(collections.defaultdict(str, ctx))
                     fmt = kwargs.get("format", "json") if has_format else None
                     if has_format:
                         return formatted_error(msg, fmt=fmt, status=status)

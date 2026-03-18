@@ -9,7 +9,7 @@ Endpoints tested:
 
 import pytest
 
-from helpers import TEST_PROJECT, TEST_ISSUE, run_cli, get_data, run_cli_raw
+from helpers import TEST_PROJECT, TEST_ISSUE, run_cli, get_data, run_cli_raw, get_mock_client
 
 
 class TestGetIssue:
@@ -97,6 +97,45 @@ class TestCreateIssue:
         assert "create" in stdout.lower()
         # Verify key parameters are documented
         assert "project" in stdout.lower() or "summary" in stdout.lower()
+
+
+class TestUpdateIssue:
+    """Test /issue/{key} PATCH endpoint."""
+
+    def test_update_issue_summary(self):
+        """Should update issue summary."""
+        result = run_cli("jira", "update", TEST_ISSUE, "--summary", "Updated summary")
+        data = get_data(result)
+        assert data["key"] == TEST_ISSUE
+        assert "summary" in data["updated"]
+
+    def test_update_issue_clear_description(self):
+        """Should be able to clear description with empty string."""
+        mock = get_mock_client()
+        mock._call_log.clear()
+
+        result = run_cli("jira", "update", TEST_ISSUE, "--description", "")
+        data = get_data(result)
+        assert data["key"] == TEST_ISSUE
+        assert "description" in data["updated"]
+
+        # Verify the empty string was sent to the client
+        update_calls = [c for c in mock._call_log if c[0] == "update_issue_field"]
+        assert update_calls, "Expected update_issue_field call"
+        fields = update_calls[0][2]
+        assert "description" in fields
+        assert fields["description"] == ""
+
+
+class TestUpdateIssueValidation:
+    """Test update validation edge cases."""
+
+    def test_update_accepts_empty_string_fields(self):
+        """Validator should accept empty strings as valid field values."""
+        from jira.routes.issues import UpdateIssueBody
+        # Empty string should NOT be rejected by the validator
+        body = UpdateIssueBody(description="")
+        assert body.description == ""
 
 
 if __name__ == "__main__":
