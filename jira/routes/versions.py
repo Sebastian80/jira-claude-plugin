@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, model_validator
 
 from ..deps import jira
-from ..response import success, formatted, jira_error_handler
+from ..response import success, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -38,9 +38,9 @@ class UpdateVersionBody(BaseModel):
 
 @router.get("/versions/{project}")
 @jira_error_handler(not_found="Project '{project}' not found")
-async def list_versions(
+def list_versions(
     project: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List versions in a project."""
@@ -53,7 +53,7 @@ async def list_versions(
     not_found="Project '{project}' not found",
     conflict="Version '{name}' already exists in {project}",
 )
-async def create_version(body: CreateVersionBody, client=Depends(jira)):
+def create_version(body: CreateVersionBody, client=Depends(jira)):
     """Create a version."""
     project = client.project(body.project)
     result = client.add_version(
@@ -67,9 +67,9 @@ async def create_version(body: CreateVersionBody, client=Depends(jira)):
 
 @router.get("/version/{version_id}")
 @jira_error_handler(not_found="Version '{version_id}' not found")
-async def get_version(
+def get_version(
     version_id: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get version details."""
@@ -82,7 +82,7 @@ async def get_version(
     not_found="Version '{version_id}' not found",
     conflict="Version name '{name}' already exists",
 )
-async def update_version(version_id: str, body: UpdateVersionBody, client=Depends(jira)):
+def update_version(version_id: str, body: UpdateVersionBody, client=Depends(jira)):
     """Update a version."""
     result = client.update_version(
         version=version_id, name=body.name, description=body.description, is_released=body.released

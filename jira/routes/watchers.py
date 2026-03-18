@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from ..deps import jira
-from ..response import success, formatted, jira_error_handler
+from ..response import success, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -22,9 +22,9 @@ class AddWatcherBody(BaseModel):
 
 @router.get("/watchers/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def list_watchers(
+def list_watchers(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List watchers on issue."""
@@ -34,7 +34,7 @@ async def list_watchers(
 
 @router.post("/watcher/{key}")
 @jira_error_handler(not_found="Issue {key} not found", forbidden="Permission denied")
-async def add_watcher(key: str, body: AddWatcherBody, client=Depends(jira)):
+def add_watcher(key: str, body: AddWatcherBody, client=Depends(jira)):
     """Add watcher to issue."""
     client.issue_add_watcher(key, body.username)
     return success({"issue_key": key, "username": body.username, "added": True})
@@ -42,7 +42,7 @@ async def add_watcher(key: str, body: AddWatcherBody, client=Depends(jira)):
 
 @router.delete("/watcher/{key}/{username}")
 @jira_error_handler(not_found="Issue {key} or watcher {username} not found", forbidden="Permission denied")
-async def remove_watcher(key: str, username: str, client=Depends(jira)):
+def remove_watcher(key: str, username: str, client=Depends(jira)):
     """Remove watcher from issue."""
     client.issue_delete_watcher(key, username)
     return success({"issue_key": key, "username": username, "removed": True})

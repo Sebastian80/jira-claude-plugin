@@ -11,7 +11,7 @@ Endpoints:
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted, jira_error_handler
+from ..response import formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -19,8 +19,8 @@ router = APIRouter()
 @router.get("/user")
 @router.get("/user/me")
 @jira_error_handler()
-async def get_user(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def get_user(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get current authenticated user."""

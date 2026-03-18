@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from ..deps import jira
-from ..response import success, formatted, jira_error_handler
+from ..response import success, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -26,9 +26,9 @@ class CreateComponentBody(BaseModel):
 
 @router.get("/components/{project}")
 @jira_error_handler(not_found="Project '{project}' not found")
-async def list_components(
+def list_components(
     project: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List components in a project."""
@@ -41,7 +41,7 @@ async def list_components(
     not_found="Project '{project}' not found",
     conflict="Component '{name}' already exists in {project}",
 )
-async def create_component(body: CreateComponentBody, client=Depends(jira)):
+def create_component(body: CreateComponentBody, client=Depends(jira)):
     """Create a component."""
     component = {"name": body.name, "project": body.project}
     if body.description:
@@ -55,9 +55,9 @@ async def create_component(body: CreateComponentBody, client=Depends(jira)):
 
 @router.get("/component/{component_id}")
 @jira_error_handler(not_found="Component '{component_id}' not found")
-async def get_component(
+def get_component(
     component_id: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get component details."""
@@ -67,7 +67,7 @@ async def get_component(
 
 @router.delete("/component/{component_id}")
 @jira_error_handler(not_found="Component '{component_id}' not found")
-async def delete_component(component_id: str, client=Depends(jira)):
+def delete_component(component_id: str, client=Depends(jira)):
     """Delete a component."""
     client.delete_component(component_id)
     return success({"deleted": True, "component_id": component_id})

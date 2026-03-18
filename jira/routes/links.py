@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from ..deps import jira
-from ..response import success, formatted, jira_error_handler
+from ..response import success, formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -35,9 +35,9 @@ class AddWeblinkBody(BaseModel):
 
 @router.get("/links/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def get_issue_links(
+def get_issue_links(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List all links on an issue."""
@@ -49,8 +49,8 @@ async def get_issue_links(
 @router.get("/linktypes")
 @router.get("/link/types")
 @jira_error_handler()
-async def list_link_types(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def list_link_types(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List available issue link types."""
@@ -60,7 +60,7 @@ async def list_link_types(
 
 @router.post("/link")
 @jira_error_handler()
-async def create_link(body: CreateLinkBody, client=Depends(jira)):
+def create_link(body: CreateLinkBody, client=Depends(jira)):
     """Create link between two issues."""
     link_data = {
         "type": {"name": body.type},
@@ -73,7 +73,7 @@ async def create_link(body: CreateLinkBody, client=Depends(jira)):
 
 @router.post("/weblink/{key}")
 @jira_error_handler()
-async def add_weblink(key: str, body: AddWeblinkBody, client=Depends(jira)):
+def add_weblink(key: str, body: AddWeblinkBody, client=Depends(jira)):
     """Add web link to issue."""
     link_title = body.title or body.url
     link_object = {"url": body.url, "title": link_title}
@@ -83,9 +83,9 @@ async def add_weblink(key: str, body: AddWeblinkBody, client=Depends(jira)):
 
 @router.get("/weblinks/{key}")
 @jira_error_handler(not_found="Issue {key} not found")
-async def list_weblinks(
+def list_weblinks(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List web links on issue."""
@@ -95,7 +95,7 @@ async def list_weblinks(
 
 @router.delete("/weblink/{key}/{link_id}")
 @jira_error_handler()
-async def remove_weblink(key: str, link_id: str, client=Depends(jira)):
+def remove_weblink(key: str, link_id: str, client=Depends(jira)):
     """Remove web link from issue."""
     client.delete(f"rest/api/2/issue/{key}/remotelink/{link_id}")
     return success({"key": key, "link_id": link_id, "removed": True})

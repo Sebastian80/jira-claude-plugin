@@ -9,7 +9,7 @@ Endpoints:
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..deps import jira
-from ..response import formatted, jira_error_handler
+from ..response import formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
@@ -47,8 +47,8 @@ def normalize_status_name(name: str) -> list[str]:
 
 @router.get("/statuses")
 @jira_error_handler()
-async def list_statuses(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def list_statuses(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List all statuses."""
@@ -58,9 +58,9 @@ async def list_statuses(
 
 @router.get("/status/{name:path}")
 @jira_error_handler()
-async def get_status(
+def get_status(
     name: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get status by name (accepts English or localized names)."""

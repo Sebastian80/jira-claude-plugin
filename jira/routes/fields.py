@@ -9,15 +9,15 @@ Endpoints:
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted, jira_error_handler
+from ..response import formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
 
 @router.get("/fields")
 @jira_error_handler()
-async def list_fields(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def list_fields(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List all fields."""
@@ -27,8 +27,8 @@ async def list_fields(
 
 @router.get("/fields/custom")
 @jira_error_handler()
-async def list_custom_fields(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def list_custom_fields(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List only custom fields."""

@@ -11,17 +11,17 @@ Endpoints:
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted, jira_error_handler
+from ..response import formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
 
 @router.get("/projects")
 @jira_error_handler()
-async def list_projects(
+def list_projects(
     include_archived: bool = Query(False, alias="includeArchived", description="Include archived projects"),
     expand: str | None = Query(None, description="Fields to expand"),
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List all Jira projects."""
@@ -37,9 +37,9 @@ async def list_projects(
 
 @router.get("/project/{key}")
 @jira_error_handler(not_found="Project {key} not found")
-async def get_project(
+def get_project(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get project details by key."""
@@ -48,22 +48,22 @@ async def get_project(
 
 
 @router.get("/project/{key}/components")
-async def get_project_components(
+def get_project_components(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get project components (delegates to /components/{project})."""
     from .components import list_components
-    return await list_components(key, format, client)
+    return list_components(key, format, client)
 
 
 @router.get("/project/{key}/versions")
-async def get_project_versions(
+def get_project_versions(
     key: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get project versions (delegates to /versions/{project})."""
     from .versions import list_versions
-    return await list_versions(key, format, client)
+    return list_versions(key, format, client)

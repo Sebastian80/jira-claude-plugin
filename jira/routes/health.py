@@ -14,14 +14,14 @@ Examples:
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted
+from ..response import formatted, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
 
 @router.get("/health")
-async def health_check(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def health_check(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Check Jira connection health."""

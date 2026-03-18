@@ -213,7 +213,7 @@ def format_help_ai(endpoints: list[dict]) -> str:
 
 
 @router.get("/help")
-async def get_help(
+def get_help(
     request: Request,
     endpoint: str | None = Query(None, description="Filter to specific endpoint name"),
     format: str = Query("rich", description="Output format: json, rich, ai"),
@@ -266,7 +266,7 @@ async def get_help(
 
 
 @router.get("/help/{endpoint_name}")
-async def get_endpoint_help(
+def get_endpoint_help(
     request: Request,
     endpoint_name: str,
     format: str = Query("rich", description="Output format: json, rich, ai"),
