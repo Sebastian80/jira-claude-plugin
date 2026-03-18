@@ -1,33 +1,46 @@
 # Localized Jira Instances
 
-If your Jira displays German (or other language) status names, **JQL requires internal status names, not display names**.
+## JQL Requires Internal Status Names
 
-## Common Status Mappings
+If your Jira displays German (or other localized) status names, **JQL requires the internal English status names, not the display names**.
 
-| Display Name | JQL Value |
-|--------------|-----------|
-| Geschlossen | Closed |
+### Common Status Mappings
+
+| Display Name (German) | JQL Value (English) |
+|------------------------|---------------------|
 | Offen | Open |
+| Geschlossen | Closed |
 | In Arbeit | In Progress |
 | Erledigt | Resolved |
 | Zu erledigen | To Do |
+| Fertig | Done |
+| Neu | New |
+| Wieder geöffnet | Reopened |
 
-## Finding the Correct Status Name
+### Example
 
-Use `jira statuses` to list all statuses and their IDs:
 ```bash
-jira statuses --format json | grep -i "name"
-```
-
-Then use the exact `name` value in JQL, not the translated display name.
-
-## Example Error
-
-```
-# This FAILS (display name)
+# FAILS — localized display name
 jira search --jql 'status = "In Arbeit"'
 # Error: Der Wert 'In Arbeit' existiert nicht für das Feld 'status'.
 
-# This WORKS (internal name)
+# WORKS — internal English name
 jira search --jql 'status = "In Progress"'
+```
+
+## CLI Status Endpoint Accepts Both
+
+The `jira status` command handles bidirectional lookup automatically:
+
+```bash
+jira status "In Progress"    # English name — works
+jira status "In Arbeit"      # German name — also works
+```
+
+## Finding Status Names
+
+Use `jira statuses` to list all statuses with their internal names:
+
+```bash
+jira statuses --format ai
 ```

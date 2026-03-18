@@ -64,7 +64,7 @@ jira transition KEY --target "Status" --dryRun
 jira transitions KEY
 
 # Analysis helpers
-jira search --jql 'assignee = currentUser() AND status != Done' --format markdown
+jira search --jql 'assignee = currentUser() AND status not in (Done)' --format markdown
 ```
 
 ## Output Format

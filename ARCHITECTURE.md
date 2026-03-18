@@ -1,6 +1,6 @@
 # Jira Plugin Architecture
 
-Deep dive into how the standalone Jira plugin works, how components connect, and the data flow from CLI to Jira API.
+How the standalone Jira plugin works, how components connect, and the data flow from CLI to Jira API.
 
 ## System Overview
 
@@ -14,8 +14,8 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  bin/jira (Self-Bootstrapping Bash Wrapper)                                │
 │  ──────────────────────────────────────────                                │
-│  1. Ensures venv exists (auto-creates on first run)                        │
-│  2. Ensures server is running (auto-starts if needed)                      │
+│  1. Ensures uv is available                                                │
+│  2. Ensures server is running (auto-starts if needed via uv run)           │
 │  3. Converts CLI args to HTTP request                                      │
 │  4. Routes: jira issue PROJ-123 → GET /jira/issue/PROJ-123                 │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -25,8 +25,8 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  Standalone FastAPI Server (main.py, port 9200)                            │
 │  ──────────────────────────────────────────────                            │
-│  • Self-contained - no external dependencies                               │
-│  • Creates fresh Jira client per request (avoids stale connections)        │
+│  • Self-contained — no external dependencies beyond pyproject.toml         │
+│  • Cached Jira client singleton (initialized at startup)                   │
 │  • Routes requests to endpoint handlers                                    │
 │  • Provides OpenAPI documentation                                          │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -48,8 +48,8 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  Dependency Injection (deps.py)                                            │
 │  ──────────────────────────────                                            │
-│  • Fresh Jira client per request (no stale connections)                    │
-│  • Health check on startup                                                 │
+│  • Cached Jira client singleton (created once at startup)                  │
+│  • User timezone from Jira profile (for worklog timestamps)                │
 │  • FastAPI Depends() integration                                           │
 └────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -94,7 +94,7 @@ Deep dive into how the standalone Jira plugin works, how components connect, and
 Self-bootstrapping bash script that handles all setup automatically:
 
 ```bash
-# First run: creates venv, installs deps, starts server
+# First run: uv installs deps, starts server
 jira issue PROJ-123
 
 # Subsequent runs: just routes to running server
@@ -102,10 +102,11 @@ jira issue PROJ-123
 ```
 
 **Key features:**
-- Auto-creates Python venv in `~/.local/share/jira-cli/.venv`
-- Auto-installs dependencies (fastapi, uvicorn, atlassian-python-api, etc.)
+- Requires `uv` — auto-manages venv and dependencies via `uv run --locked`
 - Auto-starts server on first command
 - PID file management for server lifecycle
+- Graceful shutdown with SIGTERM→SIGKILL fallback
+- Port-in-use detection prevents conflicting servers
 
 **CLI to HTTP translation:**
 ```
@@ -129,18 +130,17 @@ Standalone server with lifecycle management:
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize Jira client
+    # Startup: Initialize cached Jira client + user timezone
     init_client()
     yield
-    # Shutdown: Cleanup
-    reset()
+    # Shutdown: nothing to clean up (requests.Session handles it)
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(create_router(), prefix="/jira")
 ```
 
 **Endpoints:**
-- `/health` - Server and Jira connection health
+- `/ready` - Liveness probe (used by bin/jira to detect server ready)
 - `/` - Basic info
 - `/jira/*` - All Jira operations
 
@@ -150,13 +150,13 @@ Each module handles a specific domain:
 
 | Module | Endpoints | Purpose |
 |--------|-----------|---------|
-| issues.py | `/issue/{key}`, `/create`, `/delete/{key}` | Issue CRUD |
+| issues.py | `/issue/{key}`, `/show/{key}`, `/create`, `/delete/{key}` | Issue CRUD |
 | search.py | `/search` | JQL queries |
 | comments.py | `/comments/{key}`, `/comment/{key}`, DELETE `/comment/{key}/{id}` | Comments |
 | workflow.py | `/transitions/{key}`, `/transition/{key}` | Status changes |
 | watchers.py | `/watchers/{key}`, `/watcher/{key}` | Watchers |
 | attachments.py | `/attachments/{key}`, `/attachment/{key}`, DELETE `/attachment/{id}` | File upload/delete |
-| links.py | `/links/{key}`, `/linktypes` | Issue links |
+| links.py | `/links/{key}`, `/linktypes`, `/link`, `/weblink/{key}`, `/weblinks/{key}` | Issue + web links |
 | worklogs.py | `/worklogs/{key}`, `/worklog/{key}` | Time tracking |
 | projects.py | `/projects`, `/project/{key}` | Projects |
 | statuses.py | `/statuses`, `/status/{name}` | Status metadata |
@@ -166,27 +166,32 @@ Each module handles a specific domain:
 | agile.py | `/boards`, `/sprints/{board}`, `/sprint/{id}` | Sprints and boards |
 | filters.py | `/filters`, `/filter/{id}` | Saved filters |
 | fields.py | `/fields`, `/fields/custom` | Field metadata |
-| user.py | `/user/me` | Current user |
+| user.py | `/user`, `/user/me` | Current user |
 | health.py | `/health` | Health check |
 | help.py | `/help`, `/help/{endpoint}` | API docs |
 
 ### 4. Dependency Injection (deps.py)
 
-Fresh client per request - simple and reliable:
+Cached singleton client — initialized once at startup:
 
 ```python
-def jira():
-    """FastAPI dependency - get fresh Jira client per request."""
-    try:
-        return get_jira_client()
-    except Exception as e:
-        raise HTTPException(503, f"Jira not connected: {e}")
+_client: Jira | None = None
+_user_tz: ZoneInfo = ZoneInfo("UTC")
+
+def init_client():
+    global _client, _user_tz
+    _client = get_jira_client()
+    user = _client.myself()
+    _user_tz = ZoneInfo(user.get("timeZone") or "UTC")
+
+def jira() -> Jira:
+    """FastAPI dependency — return the cached Jira client."""
+    if _client is None:
+        raise HTTPException(status_code=503, detail="Jira client not initialized")
+    return _client
 ```
 
-**Why fresh per request?**
-- Avoids stale TCP connections after long idle periods
-- No complex reconnection/circuit breaker logic needed
-- ~100ms overhead is negligible for CLI usage
+The `atlassian-python-api` library uses `requests.Session` internally, which handles connection pooling and keep-alive automatically.
 
 ### 5. Formatter System (formatters/)
 
@@ -214,14 +219,6 @@ Transforms API responses for different consumers:
 ```python
 @register_formatter("jira", "issue", "ai")
 class JiraIssueAIFormatter(AIFormatter):
-    ...
-
-@register_formatter("jira", "issue", "rich")
-class JiraIssueRichFormatter(RichFormatter):
-    ...
-
-@register_formatter("jira", "issue", "markdown")
-class JiraIssueMarkdownFormatter(MarkdownFormatter):
     ...
 ```
 
@@ -255,59 +252,28 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 ### Pattern 1: Simple GET
 
 ```
-jira issue PROJ-123
+jira issue PROJ-123 --format ai
     │
     ▼
 bin/jira: ensure_server() + route_request()
     │
     ▼
-GET http://127.0.0.1:9200/jira/issue/PROJ-123
+GET http://127.0.0.1:9200/jira/issue/PROJ-123?format=ai
     │
     ▼
-routes/issues.py: get_issue()
+routes/issues.py: get_issue(key, format, client=Depends(jira))
     │
     ▼
-Depends(jira) → deps.py: get_client()
-    │
-    ▼
-client.issue("PROJ-123")
-    │
-    ▼
-Jira API → JSON response
+client.issue("PROJ-123")  →  Jira API  →  JSON response
     │
     ▼
 formatted(data, "ai", "issue")
     │
     ▼
-JiraIssueAIFormatter.format(data)
-    │
-    ▼
-PlainTextResponse
+JiraIssueAIFormatter.format(data)  →  PlainTextResponse
 ```
 
-### Pattern 2: Search with JQL
-
-```
-jira search --jql 'project = PROJ AND status != Done'
-    │
-    ▼
-bin/jira: URL-encode JQL with --data-urlencode
-    │
-    ▼
-GET /jira/search?jql=project%20%3D%20PROJ%20AND%20status%20%21%3D%20Done
-    │
-    ▼
-routes/search.py: preprocess_jql()
-    │   └─ Converts != to NOT field = (workaround for library bug)
-    │
-    ▼
-client.jql(processed_jql, limit=50)
-    │
-    ▼
-formatted(issues, "ai", "search")
-```
-
-### Pattern 3: Write Operation (POST with JSON body)
+### Pattern 2: Write Operation (POST with JSON body)
 
 ```
 jira comment PROJ-123 --text "Work completed"
@@ -322,77 +288,32 @@ POST /jira/comment/PROJ-123
     │
     ▼
 routes/comments.py: add_comment(key, body: AddCommentBody)
-    │   Pydantic validates body → AddCommentBody(text="Work completed")
+    Pydantic validates body → AddCommentBody(text="Work completed")
     │
     ▼
 client.issue_add_comment(key, body.text)
     │
     ▼
-success(result)
+success(result)  →  JSONResponse({"success": true, "data": ...})
 ```
-
-## Extension Points
-
-### Adding a New Route
-
-```
-routes/myfeature.py
-        │
-        ▼
-1. Create router = APIRouter()
-2. Define endpoints with @router.get/post/etc
-3. Use Depends(jira) for client access
-4. Use formatted() for response formatting
-        │
-        ▼
-routes/__init__.py
-    1. Import router
-    2. Add to create_router()
-```
-
-### Adding a New Formatter
-
-```
-formatters/myentity.py
-        │
-        ▼
-1. Create classes extending AIFormatter, RichFormatter, MarkdownFormatter
-2. Decorate with @register_formatter("jira", "entity", "ai/rich/markdown")
-3. Import in formatters/__init__.py (triggers auto-registration)
-```
-
-No need to edit `register_jira_formatters()` — it no longer exists.
 
 ## Error Handling
 
-All routes use the `@jira_error_handler` decorator from `response.py`, which catches HTTPError (404, 409, 403, 400) and Exception automatically, with format-aware error responses for GET endpoints:
-
-**GET endpoints** (with `format` param):
+All routes use the `@jira_error_handler` decorator from `response.py`, which catches HTTPError (404, 409, 403, 400) and Exception automatically:
 
 ```python
-from ..response import jira_error_handler, formatted
-
-@jira_error_handler(not_found="Issue {key} not found")
 @router.get("/issue/{key}")
-async def get_issue(
+@jira_error_handler(not_found="Issue {key} not found")
+def get_issue(
     key: str,
-    format: str = Query("json"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
-    """Get issue details by key."""
-    data = client.issue(key)
-    return formatted(data, format, "issue")
+    issue = client.issue(key)
+    return formatted(issue, format, "issue")
 ```
 
-**Write endpoints** (POST/PATCH/DELETE without `format` param) use the same decorator:
-
-```python
-@jira_error_handler(not_found="Issue {key} not found")
-@router.post("/comment/{key}")
-async def add_comment(key: str, body: AddCommentBody, client=Depends(jira)):
-    result = client.issue_add_comment(key, body.text)
-    return success(result)
-```
+The decorator auto-detects whether the handler has a `format` parameter and returns format-aware errors accordingly.
 
 Custom 404 handler in `main.py` provides helpful messages for missing parameters:
 
@@ -416,34 +337,29 @@ ROUTES_REQUIRING_KEY = {
 
 `atlassian-python-api` passes file objects to `requests` using the simple form
 `files={"file": fobj}`. With `urllib3` 2.x, this no longer auto-sets the per-part
-`Content-Type` header, so Jira receives attachments without MIME type metadata —
-PDFs render as raw binary, images won't preview, etc.
+`Content-Type` header, so Jira receives attachments without MIME type metadata.
 
 `JiraClient` subclasses `atlassian.Jira` and overrides `add_attachment_object()` to
 use the explicit tuple form `(filename, fobj, content_type)` with MIME type guessed
 via `mimetypes.guess_type()`.
-
-**Upstream references:**
-- [atlassian-python-api #514](https://github.com/atlassian-api/atlassian-python-api/issues/514) — closed without fix
-- [JRACLOUD-72884](https://jira.atlassian.com/browse/JRACLOUD-72884) — Jira confirms attachments without MIME type won't display
 
 **Remove when:** upstream `add_attachment_object()` passes Content-Type in the file tuple.
 
 ## Performance
 
 1. **Persistent server**: FastAPI stays running, only HTTP routing overhead per request
-2. **Fresh client per request**: Avoids stale connection issues (~100ms overhead, negligible for CLI)
+2. **Cached singleton client**: Initialized once at startup with connection pooling via `requests.Session`
 3. **AI format**: Token-efficient output reduces LLM context usage
-4. **JQL preprocessing**: Workarounds for library bugs handled once
+4. **JQL preprocessing**: Workarounds for library bugs handled transparently
 
 ## File Structure
 
 ```
 ├── plugin.json                 # Plugin manifest
-├── bin/jira                    # Self-bootstrapping CLI wrapper
+├── bin/jira                    # Self-bootstrapping CLI wrapper (uses uv)
 ├── jira/                       # Python package
 │   ├── main.py                 # FastAPI app
-│   ├── deps.py                 # Dependency injection
+│   ├── deps.py                 # Dependency injection (cached singleton)
 │   ├── response.py             # Response formatting + error utilities
 │   ├── routes/                 # 18 endpoint modules (Pydantic models for POST/PATCH)
 │   ├── formatters/             # Output formatters (ai, rich, markdown)
@@ -456,5 +372,6 @@ via `mimetypes.guess_type()`.
 │   ├── jira-report/            # Multi-ticket analysis (forks to jira-agent)
 │   └── jira-bulk/              # Bulk operations (forks to jira-agent)
 ├── tests/                      # Unit + integration tests
-└── pyproject.toml              # Package config
+├── pyproject.toml              # Package config
+└── uv.lock                     # Locked dependencies
 ```

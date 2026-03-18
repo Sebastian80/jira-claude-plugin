@@ -10,7 +10,7 @@ import inspect
 import logging
 from typing import Any, Literal
 
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 from requests import HTTPError
 
@@ -55,10 +55,10 @@ def error(message: str, hint: str | None = None, status: int = 400) -> JSONRespo
     return JSONResponse(status_code=status, content=content)
 
 
-def formatted(data: Any, fmt: OutputFormat, data_type: str | None = None):
+def formatted(data: Any, fmt: OutputFormat, data_type: str | None = None) -> Response:
     """Return response in requested format."""
     if fmt == "json":
-        return JSONResponse(content={"success": True, "data": data})
+        return success(data)
 
     formatter = formatter_registry.get(fmt, plugin="jira", data_type=data_type)
     if formatter is None:
@@ -75,7 +75,7 @@ def formatted(data: Any, fmt: OutputFormat, data_type: str | None = None):
     return PlainTextResponse(content=formatter.format(data))
 
 
-def formatted_error(message: str, hint: str | None = None, fmt: str = "json", status: int = 400):
+def formatted_error(message: str, hint: str | None = None, fmt: OutputFormat = "json", status: int = 400) -> Response:
     """Return error in requested format."""
     if fmt == "json":
         return error(message, hint, status)

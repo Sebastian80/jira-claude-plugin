@@ -9,13 +9,14 @@ which handles connection pooling and keep-alive.
 import logging
 from zoneinfo import ZoneInfo
 
+from atlassian import Jira
 from fastapi import HTTPException
 
 from .lib.client import get_jira_client
 
 logger = logging.getLogger(__name__)
 
-_client = None
+_client: Jira | None = None
 _user_tz: ZoneInfo = ZoneInfo("UTC")
 
 
@@ -33,7 +34,7 @@ def init_client():
             logger.warning("Unknown timezone '%s', using UTC", tz_name)
 
 
-def jira():
+def jira() -> Jira:
     """FastAPI dependency — return the cached Jira client."""
     if _client is None:
         raise HTTPException(status_code=503, detail="Jira client not initialized")

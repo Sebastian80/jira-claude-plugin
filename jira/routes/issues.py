@@ -114,8 +114,8 @@ def show_issue(
     client=Depends(jira),
 ):
     """Get issue with comments combined in one view."""
-    # Fetch issue with comment field included
-    issue = client.issue(key, fields="*all,comment")
+    # Fetch issue with the fields the formatters actually use, plus comments
+    issue = client.issue(key, fields="summary,status,issuetype,priority,assignee,reporter,labels,description,comment")
 
     # Extract comments, then build issue without comment field to avoid duplication
     fields = issue.get("fields", {})

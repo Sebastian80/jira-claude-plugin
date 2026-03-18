@@ -75,6 +75,16 @@ class Transition:
     def from_dict(cls, data: dict) -> "Transition":
         return cls(id=data["id"], name=data["name"], to=data["to"])
 
+    @classmethod
+    def from_api(cls, data: dict) -> "Transition":
+        """Parse a transition from the Jira REST API response format.
+
+        Handles both dict and string forms of the 'to' field.
+        """
+        to_state = data.get("to", {})
+        to_name = to_state.get("name", "") if isinstance(to_state, dict) else str(to_state)
+        return cls(id=str(data["id"]), name=data["name"], to=to_name)
+
 
 @dataclass
 class WorkflowGraph:
@@ -347,23 +357,12 @@ def discover_workflow(client, issue_key: str, verbose: bool = False) -> Workflow
 
         # Now get available transitions
         response = client.get(f"/rest/api/2/issue/{issue_key}/transitions")
-        transitions = []
-        for t in response.get("transitions", []):
-            to_state = t.get("to", {})
-            if isinstance(to_state, dict):
-                to_name = to_state.get("name", "")
-            else:
-                to_name = str(to_state)
+        transitions = [Transition.from_api(t) for t in response.get("transitions", [])]
 
-            transitions.append(Transition(
-                id=t["id"],
-                name=t["name"],
-                to=to_name
-            ))
-
+        for t in transitions:
             # Queue unvisited states
-            if to_name and to_name not in visited:
-                queue.append(to_name)
+            if t.to and t.to not in visited:
+                queue.append(t.to)
 
         graph.add_state(current_state, transitions)
 
@@ -468,15 +467,7 @@ def smart_transition(
 
         # Get available transitions
         transitions_raw = client.get_issue_transitions(issue_key)
-        transitions = []
-        for t in transitions_raw:
-            to_state = t.get("to", {})
-            to_name = to_state.get("name", "") if isinstance(to_state, dict) else str(to_state)
-            transitions.append(Transition(
-                id=str(t["id"]),
-                name=t["name"],
-                to=to_name
-            ))
+        transitions = [Transition.from_api(t) for t in transitions_raw]
 
         if verbose:
             available = [t.to for t in transitions]

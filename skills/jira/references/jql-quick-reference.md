@@ -171,11 +171,16 @@ project = PROJ ORDER BY priority DESC, created ASC
 
 ### Negation Operators (Auto-Fixed)
 
-The `atlassian-python-api` library incorrectly escapes negation operators in JQL queries. This is **automatically fixed** by the `jira search` command which pre-processes queries.
+The `atlassian-python-api` library incorrectly escapes negation operators in JQL queries. The `jira search` command auto-converts these before sending:
 
-Negation operators are converted automatically to NOT syntax.
+| Input | Auto-converted to |
+|-------|-------------------|
+| `field != value` | `NOT field = value` |
+| `field \!= value` | `NOT field = value` |
+| `field !~ value` | `NOT field ~ value` |
+| `field \!~ value` | `NOT field ~ value` |
 
-**Recommended syntax** (always works):
+**Recommended syntax** (always works without conversion):
 
 | Pattern | Example |
 |---------|---------|

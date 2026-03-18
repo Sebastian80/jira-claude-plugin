@@ -15,14 +15,12 @@ from fastapi.testclient import TestClient
 from jira.main import app
 from jira.deps import jira
 from tests.mock_jira import MockJiraClient
+from tests.fixtures import TEST_PROJECT, TEST_ISSUE
 
 
 # ==============================================================================
 # Test Configuration
 # ==============================================================================
-
-TEST_PROJECT = "HMKG"  # Project with test issues
-TEST_ISSUE = "HMKG-2062"  # Existing issue for read tests
 
 # Plugin directory (for reference only — no subprocess use)
 PLUGIN_DIR = Path(__file__).parent.parent.parent

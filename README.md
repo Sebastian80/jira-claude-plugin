@@ -18,7 +18,7 @@ Standalone Jira CLI plugin for Claude Code. Self-contained FastAPI server with f
 ## Quick Start
 
 ```bash
-# First run auto-creates venv and starts server
+# First run auto-installs deps (via uv) and starts server
 jira issue PROJ-123
 
 # Search with JQL
@@ -41,9 +41,9 @@ jira help
 |----------|--------------|
 | **Issues** | Get, create, update, delete issues |
 | **Search** | JQL queries with pagination |
-| **Workflow** | Smart multi-step transitions with path-finding |
+| **Workflow** | Smart multi-step transitions with BFS path-finding |
 | **Comments** | List, add, delete comments |
-| **Time Tracking** | Worklogs with time format validation |
+| **Time Tracking** | Worklogs with user timezone support |
 | **Links** | Issue links, web links |
 | **Attachments** | List, upload (multi-file), delete attachments |
 | **Watchers** | List, add, remove watchers |
@@ -102,11 +102,11 @@ jira health     # Check Jira connection
 
 ```
 ├── plugin.json            # Plugin manifest
-├── bin/jira               # Self-bootstrapping CLI wrapper
+├── bin/jira               # Self-bootstrapping CLI wrapper (uses uv)
 ├── jira/                  # FastAPI server
 │   ├── main.py            # Server entry point
-│   ├── deps.py            # Dependency injection
-│   ├── response.py        # Response formatting + error utilities
+│   ├── deps.py            # Dependency injection (cached singleton + timezone)
+│   ├── response.py        # Response formatting + error handler decorator
 │   ├── routes/            # 18 endpoint modules
 │   ├── formatters/        # Output formatters (ai, rich, markdown)
 │   └── lib/               # Config, JiraClient (Jira subclass), workflow engine
@@ -119,6 +119,7 @@ jira health     # Check Jira connection
 │   └── jira-bulk/         # Bulk operations (forks to jira-agent)
 ├── tests/                 # Unit + integration tests
 ├── pyproject.toml         # Python package config
+├── uv.lock                # Locked dependencies
 └── pytest.ini             # Test config
 ```
 
@@ -126,6 +127,7 @@ jira health     # Check Jira connection
 
 - **GET/DELETE** endpoints use query parameters
 - **POST/PATCH** endpoints use JSON request bodies (Pydantic models)
+- All route handlers are sync `def` (Jira client is sync; FastAPI threadpools them)
 - Error handling via `@jira_error_handler` decorator (catches HTTPError by status code)
 - All endpoints return `{"success": true, "data": ...}` or `{"success": false, "error": ...}`
 
@@ -140,7 +142,7 @@ jira health     # Check Jira connection
 ## Development
 
 ```bash
-# Run tests (from plugin root)
+# Run tests
 uv run pytest tests/ -v
 
 # Restart server after code changes

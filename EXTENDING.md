@@ -9,7 +9,7 @@ Step-by-step guide to adding new functionality to the standalone Jira plugin.
 | New Route (endpoint) | `routes/<category>.py`, `routes/__init__.py` | Low |
 | New Formatter | `formatters/<entity>.py`, `formatters/__init__.py` | Low |
 | New Entity (full) | Routes + Formatters + Tests + Docs | Medium |
-| New CLI command | `bin/jira` | Low |
+| New CLI command | `bin/jira` (usually nothing needed) | Low |
 
 ## Adding a New Route
 
@@ -18,64 +18,51 @@ Routes are FastAPI endpoint handlers. Each route module handles a related group 
 ### Step 1: Create the Route Handler
 
 ```python
-# routes/sprints.py
+# routes/labels.py
 
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import jira
-from ..response import formatted, jira_error_handler
+from ..response import formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
 
-@jira_error_handler(not_found="Board {board_id} not found")
-@router.get("/sprints/{board_id}")
-async def get_sprints(
-    board_id: str,
-    state: str = Query("active", description="Sprint state: active, closed, future"),
-    format: str = Query("json", description="Output format: json, ai, rich, markdown"),
+@router.get("/labels/{key}")
+@jira_error_handler(not_found="Issue {key} not found")
+def get_labels(
+    key: str,
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
-    """Get sprints for an agile board."""
-    sprints = client.get_all_sprints_from_board(board_id, state=state)
-    return formatted(sprints, format, "sprints")
-
-
-@jira_error_handler(not_found="Sprint {sprint_id} not found")
-@router.get("/sprint/{sprint_id}")
-async def get_sprint(
-    sprint_id: str,
-    format: str = Query("json", description="Output format"),
-    client=Depends(jira),
-):
-    """Get sprint details by ID."""
-    sprint = client.get_sprint(sprint_id)
-    return formatted(sprint, format, "sprint")
+    """Get labels for an issue."""
+    issue = client.issue(key, fields="labels")
+    labels = issue.get("fields", {}).get("labels", [])
+    return formatted(labels, format, "labels")
 ```
+
+**Note:** Use sync `def`, not `async def`. The Jira client library is synchronous — FastAPI runs sync handlers in a threadpool automatically.
 
 ### Step 2: Register in routes/__init__.py
 
 ```python
 # routes/__init__.py
 
-from .sprints import router as sprints_router  # Add import
+from .labels import router as labels_router  # Add import
 
 def create_router() -> APIRouter:
     router = APIRouter()
-
     # ...existing routes...
-    router.include_router(sprints_router)  # Add router
-
+    router.include_router(labels_router)  # Add router
     return router
 ```
 
 ### Step 3: Done!
 
-The route is now available:
+The route is now available via the CLI:
 ```bash
-jira sprints 123                    # GET /jira/sprints/123
-jira sprints 123 --state closed     # GET /jira/sprints/123?state=closed
-jira sprint 456                     # GET /jira/sprint/456
+jira labels PROJ-123                    # GET /jira/labels/PROJ-123
+jira labels PROJ-123 --format ai        # GET /jira/labels/PROJ-123?format=ai
 ```
 
 ## Route Patterns
@@ -83,159 +70,67 @@ jira sprint 456                     # GET /jira/sprint/456
 ### Pattern: GET with Formatting
 
 ```python
-@jira_error_handler(not_found="Entity {key} not found")
 @router.get("/entity/{key}")
-async def get_entity(
+@jira_error_handler(not_found="Entity {key} not found")
+def get_entity(
     key: str,
-    format: str = Query("json", description="Output format"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
-    """Get entity by key."""
     data = client.get_entity(key)
     return formatted(data, format, "entity")
 ```
 
-### Pattern: POST with Validation
+### Pattern: POST with Pydantic Body
 
 ```python
+from pydantic import BaseModel
+
+class CreateEntityBody(BaseModel):
+    name: str
+    project: str
+    description: str | None = None
+
 @router.post("/entity")
-async def create_entity(
-    name: str = Query(..., description="Entity name"),
-    project: str = Query(..., description="Project key"),
-    client=Depends(jira),
-):
-    """Create a new entity."""
-    try:
-        result = client.create_entity(name=name, project=project)
-        return success(result)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-```
-
-### Pattern: Operation with Available Options
-
-```python
-@router.post("/do/{key}")
-async def do_something(
-    key: str,
-    action: str = Query(..., description="Action to perform"),
-    client=Depends(jira),
-):
-    """Perform an action on entity."""
-    # Get available actions
-    available = client.get_available_actions(key)
-    action_names = [a["name"] for a in available]
-
-    # Find matching action
-    match = next((a for a in available if a["name"].lower() == action.lower()), None)
-
-    if not match:
-        return error(
-            f"Action '{action}' not available",
-            hint=f"Available: {', '.join(action_names)}"
-        )
-
-    # Perform action
-    client.perform_action(key, match["id"])
-    return success({"key": key, "action": action})
+@jira_error_handler()
+def create_entity(body: CreateEntityBody, client=Depends(jira)):
+    result = client.create_entity(name=body.name, project=body.project)
+    return success(result)
 ```
 
 ## Adding a New Formatter
 
-Formatters transform API data into output formats.
-
 ### Step 1: Create Formatter Classes
 
 ```python
-# formatters/sprints.py
+# formatters/labels.py
 
 from typing import Any
-from .base import (
-    AIFormatter, RichFormatter, MarkdownFormatter,
-    Table, Panel, Text, box, render_to_string,
-    register_formatter,
-)
+from .base import AIFormatter, RichFormatter, MarkdownFormatter, register_formatter
 
-@register_formatter("jira", "sprints", "ai")
-class JiraSprintsAIFormatter(AIFormatter):
-    """AI-optimized sprint formatting."""
-
+@register_formatter("jira", "labels", "ai")
+class JiraLabelsAIFormatter(AIFormatter):
     def format(self, data: Any) -> str:
-        if not data:
-            return "NO_SPRINTS"
+        if not isinstance(data, list):
+            return super().format(data)
+        return f"labels: {', '.join(data)}" if data else "labels: none"
 
-        sprints = data if isinstance(data, list) else data.get("values", [])
-        lines = [f"SPRINTS: {len(sprints)}"]
-
-        for s in sprints:
-            state = s.get("state", "?")
-            name = s.get("name", "?")
-            goal = s.get("goal", "")[:50] if s.get("goal") else ""
-            lines.append(f"- [{state}] {name}: {goal}")
-
-        return "\n".join(lines)
-
-
-@register_formatter("jira", "sprints", "rich")
-class JiraSprintsRichFormatter(RichFormatter):
-    """Rich terminal sprint formatting."""
-
+@register_formatter("jira", "labels", "rich")
+class JiraLabelsRichFormatter(RichFormatter):
     def format(self, data: Any) -> str:
-        if not data:
-            return render_to_string(Text("No sprints found", style="yellow"))
+        ...
 
-        sprints = data if isinstance(data, list) else data.get("values", [])
-
-        table = Table(title=f"Sprints ({len(sprints)})", box=box.ROUNDED)
-        table.add_column("State", style="bold")
-        table.add_column("Name")
-        table.add_column("Goal", max_width=40)
-
-        for s in sprints:
-            state = s.get("state", "?")
-            state_style = "green" if state == "active" else "dim"
-            table.add_row(
-                Text(state, style=state_style),
-                s.get("name", "?"),
-                (s.get("goal") or "")[:40]
-            )
-
-        return render_to_string(table)
-
-
-@register_formatter("jira", "sprints", "markdown")
-class JiraSprintsMarkdownFormatter(MarkdownFormatter):
-    """Markdown sprint formatting."""
-
+@register_formatter("jira", "labels", "markdown")
+class JiraLabelsMarkdownFormatter(MarkdownFormatter):
     def format(self, data: Any) -> str:
-        if not data:
-            return "*No sprints found*"
-
-        sprints = data if isinstance(data, list) else data.get("values", [])
-        lines = [
-            "| State | Name | Goal |",
-            "|-------|------|------|",
-        ]
-
-        for s in sprints:
-            lines.append(
-                f"| {s.get('state', '?')} | {s.get('name', '?')} | "
-                f"{(s.get('goal') or '')[:30]} |"
-            )
-
-        return "\n".join(lines)
+        ...
 ```
 
 ### Step 2: Import in \_\_init\_\_.py
 
 ```python
-# formatters/__init__.py
-
-from .sprints import (
-    JiraSprintsAIFormatter,
-    JiraSprintsRichFormatter,
-    JiraSprintsMarkdownFormatter,
-)
+# formatters/__init__.py — add bare import
+from . import labels  # noqa: F401
 ```
 
 The import triggers auto-registration via the `@register_formatter` decorator.
@@ -243,207 +138,81 @@ The import triggers auto-registration via the `@register_formatter` decorator.
 ### Step 3: Use in Route
 
 ```python
-# In your route handler:
-return formatted(data, format, "sprints")
-#                              ^^^^^^^ Must match registry key
-```
-
-## Adding a Complete New Entity
-
-Full workflow for adding support for Jira Sprints:
-
-### 1. Create Route File
-
-```python
-# routes/sprints.py
-@router.get("/sprints/{board_id}")
-async def get_sprints(...): ...
-
-@router.get("/sprint/{sprint_id}")
-async def get_sprint(...): ...
-
-@router.post("/sprint/{sprint_id}/start")
-async def start_sprint(...): ...
-
-@router.post("/sprint/{sprint_id}/close")
-async def close_sprint(...): ...
-```
-
-### 2. Create Formatter File
-
-```python
-# formatters/sprints.py
-class JiraSprintsAIFormatter(AIFormatter): ...
-class JiraSprintsRichFormatter(RichFormatter): ...
-class JiraSprintAIFormatter(AIFormatter): ...     # Single sprint
-class JiraSprintRichFormatter(RichFormatter): ...
-```
-
-### 3. Update Exports
-
-```python
-# routes/__init__.py
-from .sprints import router as sprints_router
-# Add to create_router()
-
-# formatters/__init__.py
-from .sprints import JiraSprintsAIFormatter, ...
-# Import triggers auto-registration via @register_formatter decorator
-```
-
-### 4. Add Tests
-
-```python
-# tests/routes/test_sprints.py
-import pytest
-from helpers import run_cli, run_cli_raw, get_data
-
-class TestSprintsRoutes:
-    def test_get_sprints(self):
-        result = run_cli("jira", "sprints", "123")
-        # Assert result
-
-    def test_get_sprints_not_found(self):
-        stdout, stderr, code = run_cli_raw("jira", "sprints", "99999")
-        assert code != 0
-        assert "not found" in stdout.lower() or "error" in stdout.lower()
-```
-
-### 5. Update Documentation
-
-```markdown
-# skills/jira/references/commands.md
-
-## Sprints (Agile)
-
-jira sprints BOARD_ID                  # List sprints
-jira sprint SPRINT_ID                  # Sprint details
-jira sprint SPRINT_ID --start          # Start sprint (POST)
-jira sprint SPRINT_ID --close          # Close sprint (POST)
+return formatted(data, format, "labels")
+#                              ^^^^^^^^ Must match decorator's data_type
 ```
 
 ## Testing Your Changes
 
-### Run Tests
-
 ```bash
-cd /path/to/jira-plugin
-
-# All tests
-pytest tests/ -v
+# Run all tests
+uv run pytest tests/ -v
 
 # Specific file
-pytest tests/routes/test_sprints.py -v
+uv run pytest tests/routes/test_labels.py -v
 
-# With coverage
-pytest tests/ --cov=jira --cov-report=term-missing
-```
-
-### Manual Testing
-
-```bash
 # Restart server to pick up changes
 jira restart
 
-# Test commands
-jira sprints 123
-jira sprints 123 --format rich
-jira sprints 123 --format json
-
-# Check OpenAPI docs
-curl -s "http://127.0.0.1:9200/openapi.json" | jq '.paths | keys'
-```
-
-### Debug Mode
-
-```bash
-# View server logs
-jira logs
-
-# Direct API call
-curl -s "http://127.0.0.1:9200/jira/sprints/123?format=ai"
-
-# Check health
-jira health
+# Manual testing
+jira labels PROJ-123 --format ai
+jira labels PROJ-123 --format rich
+jira labels PROJ-123 --format json
 ```
 
 ## Common Gotchas
 
-### 1. Formatter Not Found
+### Formatter Not Found
 
-**Symptom:** Returns JSON instead of formatted output
+**Symptom:** Returns JSON instead of formatted output.
 
-**Cause:** Formatter not registered or wrong data_type key
-
-**Fix:**
+**Fix:** Ensure the `data_type` in `@register_formatter` matches the `data_type` in `formatted()`:
 ```python
-# Ensure decorator matches route usage
-@register_formatter("jira", "sprints", "ai")
-#                           ^^^^^^^ Must match formatted(..., "sprints")
+@register_formatter("jira", "labels", "ai")  # ← "labels"
+return formatted(data, format, "labels")       # ← must match
 ```
 
-### 2. Path Parameter Issues
+### Route Not Responding
 
-**Symptom:** 404 or parameter validation error
-
-**Cause:** Route path doesn't match CLI translation
-
-**Fix:** Check `bin/jira` route_request() function to understand how CLI args become HTTP paths.
-
-### 3. Server Not Picking Up Changes
-
-**Symptom:** Old behavior after code changes
+**Symptom:** 404 errors from the CLI.
 
 **Fix:**
+1. Check you imported and included the router in `routes/__init__.py`
+2. Restart the server: `jira restart`
+3. Verify with `jira help` — your endpoint should appear
+
+### Server Not Picking Up Changes
+
 ```bash
 jira restart
 ```
 
-### 4. Import Errors
-
-**Symptom:** ImportError when server starts
-
-**Fix:** Check circular imports in formatters/__init__.py and routes/__init__.py
-
 ## Jira API Reference
 
-The `client` parameter is a `JiraClient` instance (subclass of `atlassian.Jira` with attachment MIME type fix). Documentation:
+The `client` parameter is a `JiraClient` instance (subclass of `atlassian.Jira`). Documentation:
 - https://atlassian-python-api.readthedocs.io/jira.html
 
 Common methods:
 ```python
-# Issues
-client.issue(key)
-client.create_issue(fields={...})
-client.update_issue(key, fields={...})
-
-# Search
-client.jql(query, limit=50)
-
-# Comments
-client.issue_get_comments(key)
-client.issue_add_comment(key, body)
-
-# Transitions
-client.get_issue_transitions(key)
-client.set_issue_status_by_transition_id(key, transition_id)
-
-# Agile
-client.get_all_sprints_from_board(board_id)
-client.get_sprint(sprint_id)
-
-# Projects
-client.projects()
-client.project(key)
+client.issue(key)                          # Get issue
+client.issue(key, fields="summary,status") # Specific fields only
+client.create_issue(fields={...})          # Create issue
+client.update_issue_field(key, fields)     # Update fields
+client.jql(query, limit=50)               # JQL search
+client.issue_add_comment(key, body)        # Add comment
+client.get_issue_transitions(key)          # List transitions
+client.set_issue_status(key, status_name)  # Execute transition
+client.projects()                          # List projects
+client.project(key)                        # Get project
 ```
 
 ## Checklist for New Features
 
-- [ ] Route handler with proper path, query params, and error handling
+- [ ] Route handler with `@jira_error_handler`, `OutputFormat`, `Depends(jira)`
 - [ ] Added to `routes/__init__.py`
-- [ ] Formatter classes (AI, Rich, optionally Markdown)
-- [ ] Imported in `formatters/__init__.py` (triggers auto-registration)
+- [ ] Formatter classes (AI, Rich, Markdown) with `@register_formatter`
+- [ ] Imported in `formatters/__init__.py`
 - [ ] Route tests in `tests/routes/`
+- [ ] Mock client methods in `tests/mock_jira.py`
 - [ ] Documentation in `skills/jira/references/commands.md`
-- [ ] Manual testing with all formats
-- [ ] Server restart and verification
+- [ ] Server restart and manual testing with all formats

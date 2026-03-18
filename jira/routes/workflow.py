@@ -50,8 +50,8 @@ def do_transition(key: str, body: TransitionBody, client=Depends(jira)):
             max_steps=body.maxSteps,
         )
 
-        issue = client.issue(key, fields="status")
-        final_state = issue["fields"]["status"]["name"]
+        # Final state is the last transition's target, or target if no-op
+        final_state = executed[-1].to if executed else body.target
 
         return success({
             "key": key,

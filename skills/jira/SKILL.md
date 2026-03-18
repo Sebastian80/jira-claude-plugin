@@ -29,6 +29,7 @@ If a ticket key (format PROJECTKEY-NUMBER, e.g., OROSPD-589, HMKG-2064, XX-12) a
 # Single issue
 jira issue PROJ-123                          # Get issue (json format default)
 jira issue PROJ-123 --format ai              # Token-efficient for LLMs
+jira show PROJ-123 --format ai               # Issue + comments combined
 
 # Search
 jira search --jql 'assignee = currentUser()' # Use single quotes for JQL
@@ -56,8 +57,8 @@ jira linktypes                               # List available link types
 
 # Sprints
 jira sprint active PROJ                      # Get active sprint
-jira sprint 915 --issue PROJ-123             # Add issue to sprint
-jira sprint 915 --issue PROJ-123 -X DELETE   # Remove from sprint
+jira sprint 915 issues --issues PROJ-123 -X POST     # Add issue to sprint
+jira sprint 915 issues --issues PROJ-123 -X DELETE   # Remove from sprint
 
 # Help
 jira help                                    # Full command list
@@ -85,7 +86,7 @@ jira create --project PROJ --type Bug --summary "Fix login" \
   --description "Login fails on mobile"
 ```
 
-**Parameters:** `--project`, `--type`, `--summary` (required), `--description`, `--priority`, `--labels`, `--assignee`
+**Parameters:** `--project`, `--type`, `--summary` (required), `--description`, `--priority`, `--labels`, `--assignee`, `--parent`, `--custom`
 
 ## Server Management
 

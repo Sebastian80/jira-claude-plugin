@@ -3,14 +3,9 @@
 ## Quick Health Check
 
 ```bash
-# Check Jira connection
-jira health
-
-# Verify Jira credentials
-jira user me
-
-# Check server status
-jira status
+jira health     # Check Jira connection
+jira user       # Verify credentials
+jira status     # Check server status
 ```
 
 ## Configuration
@@ -30,11 +25,16 @@ JIRA_URL=https://jira.yourcompany.com
 JIRA_PERSONAL_TOKEN=your-personal-access-token
 ```
 
+Auth mode is auto-detected:
+- If `JIRA_PERSONAL_TOKEN` is set → Server/DC PAT auth
+- If `JIRA_USERNAME` + `JIRA_API_TOKEN` are set → Cloud basic auth
+- URL containing `.atlassian.net` → Cloud mode (auto-detected if `JIRA_CLOUD` not set)
+
 ## Common Errors
 
 ### "Server not running"
 
-**Cause**: Jira server not started or port 9200 in use.
+**Cause**: Server not started or port 9200 in use.
 
 **Fix**:
 1. Check server status: `jira status`
@@ -47,9 +47,8 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 **Cause**: Network issue or server crashed.
 
 **Fix**:
-1. Check server status: `jira status`
-2. View logs for errors: `jira logs`
-3. Restart if needed: `jira restart`
+1. View logs for errors: `jira logs`
+2. Restart: `jira restart`
 
 ### "401 Unauthorized"
 
@@ -86,16 +85,18 @@ JIRA_PERSONAL_TOKEN=your-personal-access-token
 **Cause**: Wrong command syntax or endpoint doesn't exist.
 
 **Fix**:
-1. Check command with `jira help`
-2. Positional args become path: `jira user me` → `/jira/user/me`
+1. Check command syntax with `jira help`
+2. Positional args become URL path segments: `jira user me` → `/jira/user/me`
+3. Missing required path parameter: `jira issue` needs a key → `jira issue PROJ-123`
 
-## Debug Mode
+### Flags silently ignored
 
-```bash
-jira health     # Check Jira connection
-jira status     # Check server status
-jira logs       # View server logs
-```
+**Cause**: Using flags that don't exist on an endpoint. GET endpoints ignore unknown query params.
+
+**Fix**: Use dedicated commands instead of flags on `jira issue`:
+- Links: `jira link`, not `jira issue KEY --link ...`
+- Sprint: `jira sprint`, not `jira issue KEY --sprint ...`
+- Use `jira help <command>` to see valid parameters
 
 ## JQL Issues
 
@@ -103,15 +104,7 @@ jira logs       # View server logs
 
 **Cause**: Using localized status names (e.g., German "Geschlossen") in JQL.
 
-**Fix**: Always use **English status names** in JQL, regardless of your Jira's display language:
-
-| Display (German) | JQL Value (English) |
-|------------------|---------------------|
-| Geschlossen | Closed |
-| Offen | Open |
-| In Arbeit | In Progress |
-| Erledigt | Resolved |
-| Zu erledigen | To Do |
+**Fix**: Use English status names in JQL. See [localization.md](localization.md) for mappings.
 
 ```bash
 # Wrong (German display name)
@@ -123,9 +116,9 @@ jira search --jql 'status = Closed'
 
 ### Bash history expansion with negation operators
 
-**Cause**: Bash interprets the exclamation mark in double quotes as history expansion.
+**Cause**: Bash interprets `!` in double quotes as history expansion.
 
-**Fix**: Use single quotes for JQL, or use alternative syntax:
+**Fix**: Use single quotes for JQL, or use `NOT` syntax:
 
 ```bash
 # Option 1: Single quotes (recommended)
@@ -135,21 +128,16 @@ jira search --jql 'status not in (Done)'
 jira search --jql 'NOT status = Done'
 ```
 
-The plugin auto-converts negation operators to `NOT ... =` as a fallback.
-
-## Auth Mode Detection
-
-The server auto-detects auth mode:
-- If `JIRA_PERSONAL_TOKEN` set → Server/DC PAT auth
-- If `JIRA_USERNAME` + `JIRA_API_TOKEN` set → Cloud basic auth
-- URL containing `.atlassian.net` → Cloud mode
+The CLI auto-converts `!=` and `!~` to `NOT ... =` and `NOT ... ~` as a fallback.
 
 ## Server Management
 
 ```bash
 jira start      # Start server (auto-starts on first command)
 jira stop       # Stop server
-jira status     # Show server status
-jira restart    # Restart server (pick up code changes)
+jira status     # Show server status + health info
+jira restart    # Stop + start (picks up code/config changes)
 jira logs       # Tail server logs
 ```
+
+Server PID and logs are stored in `~/.local/share/jira-cli/`.

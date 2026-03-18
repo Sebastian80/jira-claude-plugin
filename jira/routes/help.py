@@ -15,10 +15,10 @@ Examples:
 """
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 router = APIRouter()
 
@@ -216,7 +216,7 @@ def format_help_ai(endpoints: list[dict]) -> str:
 def get_help(
     request: Request,
     endpoint: str | None = Query(None, description="Filter to specific endpoint name"),
-    format: str = Query("rich", description="Output format: json, rich, ai"),
+    format: Literal["json", "rich", "ai"] = Query("rich", description="Output format: json, rich, ai"),
 ):
     """Get condensed API documentation.
 
@@ -262,14 +262,14 @@ def get_help(
     elif format == "ai":
         return PlainTextResponse(format_help_ai(endpoints))
     else:
-        return {"endpoints": endpoints, "count": len(endpoints)}
+        return JSONResponse(content={"endpoints": endpoints, "count": len(endpoints)})
 
 
 @router.get("/help/{endpoint_name}")
 def get_endpoint_help(
     request: Request,
     endpoint_name: str,
-    format: str = Query("rich", description="Output format: json, rich, ai"),
+    format: Literal["json", "rich", "ai"] = Query("rich", description="Output format: json, rich, ai"),
 ):
     """Get help for specific endpoint.
 
@@ -328,4 +328,4 @@ def get_endpoint_help(
     elif format == "ai":
         return PlainTextResponse(format_help_ai(endpoints))
     else:
-        return {"endpoints": endpoints, "count": len(endpoints)}
+        return JSONResponse(content={"endpoints": endpoints, "count": len(endpoints)})

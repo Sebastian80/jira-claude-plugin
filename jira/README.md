@@ -6,19 +6,19 @@ Internal architecture and component documentation for the `jira/` Python package
 
 ```
 jira/
-├── __init__.py      # Package init, triggers formatter auto-registration
+├── __init__.py      # Package init, version from importlib.metadata, triggers formatter registration
 ├── main.py          # FastAPI server entry point
-├── deps.py          # Dependency injection (fresh client per request)
-├── response.py      # Response formatting utilities
+├── deps.py          # Dependency injection (cached Jira client singleton + user timezone)
+├── response.py      # Response formatting utilities + error handler decorator
 │
-├── routes/          # FastAPI route handlers
+├── routes/          # FastAPI route handlers (all sync def, not async)
 │   ├── __init__.py  # create_router() - combines all routes
-│   ├── issues.py    # GET /issue/{key}, POST /create, PATCH /issue/{key}
+│   ├── issues.py    # GET /issue/{key}, GET /show/{key}, POST /create, PATCH /issue/{key}, DELETE /delete/{key}
 │   ├── search.py    # GET /search (JQL)
 │   ├── workflow.py  # GET /transitions, POST /transition
-│   ├── comments.py  # GET /comments, POST /comment
+│   ├── comments.py  # GET /comments, POST /comment, DELETE /comment/{key}/{id}
 │   ├── worklogs.py  # GET /worklogs, POST /worklog
-│   ├── links.py     # Issue links and web links
+│   ├── links.py     # Issue links, web links, link types
 │   ├── attachments.py
 │   ├── watchers.py
 │   ├── projects.py
@@ -28,21 +28,23 @@ jira/
 │   ├── priorities.py
 │   ├── fields.py
 │   ├── filters.py
+│   ├── agile.py     # Boards, sprints, sprint issue management
 │   ├── user.py
 │   ├── health.py
-│   └── help.py      # Self-documenting /help endpoint
+│   └── help.py      # Self-documenting /help endpoint from OpenAPI spec
 │
 ├── formatters/      # Output formatters (AI, Rich, Markdown)
-│   ├── __init__.py  # Registry, exports, auto-registration imports
-│   ├── base.py      # Base classes, utilities
+│   ├── __init__.py  # Auto-registration imports + base re-exports
+│   ├── base.py      # Base classes, registry, utilities, icons/styles
 │   ├── issue.py     # Issue formatters
+│   ├── show.py      # Combined issue + comments view
 │   ├── search.py    # Search results formatters
-│   └── ...          # Entity-specific formatters
+│   └── ...          # Entity-specific formatters (18 modules total)
 │
 └── lib/             # Shared utilities
-    ├── client.py    # get_jira_client() factory
-    ├── config.py    # Environment config loading
-    └── workflow.py  # Workflow engine (BFS pathfinding)
+    ├── client.py    # JiraClient (Jira subclass with attachment MIME fix)
+    ├── config.py    # Environment config loading from ~/.env.jira
+    └── workflow.py  # Workflow engine (BFS pathfinding, smart transitions)
 ```
 
 ## Request Flow
@@ -66,7 +68,7 @@ jira/
           │
           ▼
 5. Dependency Injection (deps.py)
-   jira() → fresh client per request
+   jira() → cached singleton client
           │
           ▼
 6. Jira API
@@ -91,11 +93,10 @@ jira/
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize Jira client singleton
+    # Startup: Initialize cached Jira client + user timezone
     init_client()
     yield
-    # Shutdown: Cleanup
-    reset()
+    # Shutdown: nothing to clean up
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(create_router(), prefix="/jira")
@@ -104,47 +105,37 @@ app.include_router(create_router(), prefix="/jira")
 ### deps.py - Dependency Injection
 
 ```python
-def jira():
-    """FastAPI dependency - get fresh Jira client per request."""
-    try:
-        return get_jira_client()
-    except Exception as e:
-        raise HTTPException(503, f"Jira not connected: {e}")
+_client: Jira | None = None
+_user_tz: ZoneInfo = ZoneInfo("UTC")
+
+def init_client():
+    global _client, _user_tz
+    _client = get_jira_client()
+    user = _client.myself()
+    _user_tz = ZoneInfo(user.get("timeZone") or "UTC")
+
+def jira() -> Jira:
+    """FastAPI dependency — return the cached Jira client."""
+    if _client is None:
+        raise HTTPException(status_code=503, detail="Jira client not initialized")
+    return _client
 ```
 
-Fresh client per request avoids stale TCP connection issues after long idle periods.
-The ~100ms overhead is negligible for CLI usage.
+The `atlassian-python-api` library uses `requests.Session` internally, which handles connection pooling and keep-alive.
 
 ### response.py - Output Formatting
 
 ```python
-def formatted(data: Any, fmt: str, data_type: str | None = None):
-    """Format API response for output."""
-    if fmt == "json":
-        return JSONResponse({"success": True, "data": data})
+OutputFormat = Literal["json", "rich", "ai", "markdown"]
+FORMAT_QUERY = Query("json", description="Output format: json, rich, ai, markdown")
 
-    # Look up plugin-specific formatter
+def formatted(data: Any, fmt: OutputFormat, data_type: str | None = None) -> Response:
+    if fmt == "json":
+        return success(data)
     formatter = formatter_registry.get(fmt, plugin="jira", data_type=data_type)
     if formatter:
         return PlainTextResponse(formatter.format(data))
-
-    # Fallback to JSON
-    return JSONResponse({"success": True, "data": data})
-```
-
-### routes/__init__.py - Router Assembly
-
-```python
-def create_router() -> APIRouter:
-    router = APIRouter()
-
-    router.include_router(health_router)
-    router.include_router(help_router)
-    router.include_router(issues_router)
-    router.include_router(search_router)
-    # ... all other route modules
-
-    return router
+    return success(data)  # fallback
 ```
 
 ## Route Pattern
@@ -152,90 +143,41 @@ def create_router() -> APIRouter:
 Each route module follows this pattern:
 
 ```python
-# routes/issues.py
 from fastapi import APIRouter, Depends, Query
 from ..deps import jira
-from ..response import formatted, jira_error_handler
+from ..response import formatted, jira_error_handler, OutputFormat, FORMAT_QUERY
 
 router = APIRouter()
 
-@jira_error_handler(not_found="Issue {key} not found")
 @router.get("/issue/{key}")
-async def get_issue(
+@jira_error_handler(not_found="Issue {key} not found")
+def get_issue(
     key: str,
-    format: str = Query("json", description="Output format"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
-    """Get issue details by key."""
     issue = client.issue(key)
     return formatted(issue, format, "issue")
 ```
 
-The `@jira_error_handler` decorator catches `HTTPError` (404, 409, 403, 400) and `Exception`
-automatically, with format-aware error responses for GET endpoints.
+**Note:** All route handlers are sync `def` (not `async def`) because they call the sync `atlassian-python-api` library. FastAPI runs sync handlers in a threadpool automatically.
 
 ## Formatter Registration
 
 Formatters auto-register via the `@register_formatter` class decorator:
 
 ```python
-# In each formatter module (e.g., formatters/issue.py)
-
-from .base import AIFormatter, register_formatter
-
 @register_formatter("jira", "issue", "ai")
 class JiraIssueAIFormatter(AIFormatter):
     def format(self, data: Any) -> str:
         ...
 ```
 
-Registration happens when the module is imported. `jira/__init__.py` imports `jira.formatters`
-which triggers all decorator registrations.
-
-Lookup:
-```python
-formatter_registry.get("ai", plugin="jira", data_type="issue")
-# Returns JiraIssueAIFormatter instance
-```
+Registration happens when the module is imported. `jira/__init__.py` imports `jira.formatters` which triggers all decorator registrations.
 
 ## Configuration
 
-Loaded from `~/.env.jira` by `lib/config.py`:
-
-```bash
-# Cloud
-JIRA_URL=https://company.atlassian.net
-JIRA_USERNAME=email@example.com
-JIRA_API_TOKEN=token
-
-# Server/DC
-JIRA_URL=https://jira.company.com
-JIRA_PERSONAL_TOKEN=pat
-```
-
-Auto-detection:
-- `JIRA_PERSONAL_TOKEN` present → Server/DC PAT auth
-- `JIRA_USERNAME` + `JIRA_API_TOKEN` → Cloud basic auth
-- URL contains `.atlassian.net` → Cloud mode
-
-## Debugging
-
-```bash
-# Server health
-jira health
-
-# Server logs
-jira logs
-
-# Direct API call
-curl "http://127.0.0.1:9200/jira/issue/PROJ-123"
-
-# OpenAPI spec
-curl "http://127.0.0.1:9200/openapi.json" | jq '.paths | keys'
-
-# Restart after code changes
-jira restart
-```
+Loaded from `~/.env.jira` by `lib/config.py`. Supports Cloud (username + API token) and Server/DC (personal access token) authentication.
 
 ## See Also
 

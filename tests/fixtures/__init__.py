@@ -5,7 +5,7 @@ Contains minimal but structurally complete response data for all Jira types.
 Each fixture has the fields that existing test assertions check.
 """
 
-# Test constants matching helpers.py
+# Test constants — single source of truth, imported by helpers.py
 TEST_PROJECT = "HMKG"
 TEST_ISSUE = "HMKG-2062"
 
