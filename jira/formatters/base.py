@@ -162,20 +162,9 @@ def register_formatter(plugin: str, data_type: str, format_name: str):
 @functools.lru_cache(maxsize=1)
 def _get_jira_url() -> str:
     """Get Jira base URL from environment or config file."""
-    # Try environment first
-    url = os.environ.get("JIRA_URL", "")
-    if url:
-        return url.rstrip("/")
-
-    # Try config file
-    env_file = Path.home() / ".env.jira"
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line.startswith("JIRA_URL="):
-                url = line.partition("=")[2].strip().strip('"').strip("'")
-                return url.rstrip("/")
-    return ""
+    from jira.lib.config import load_env
+    config = load_env()
+    return config.get("JIRA_URL", "").rstrip("/")
 
 
 def make_issue_link(key: str, jira_url: str = "") -> Text:

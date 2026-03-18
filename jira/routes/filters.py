@@ -10,14 +10,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from requests import HTTPError
 
 from ..deps import jira
-from ..response import formatted, get_status_code, is_status, jira_error_handler
+from ..response import formatted, get_status_code, is_status, jira_error_handler, OutputFormat, FORMAT_QUERY
+
+# Note: list_filters uses manual try/except instead of @jira_error_handler
+# because 404 means "no favorites" (return empty list), not an error.
 
 router = APIRouter()
 
 
 @router.get("/filters")
-async def list_filters(
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+def list_filters(
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """List your favorite filters."""
@@ -34,9 +37,9 @@ async def list_filters(
 
 @router.get("/filter/{filter_id}")
 @jira_error_handler()
-async def get_filter(
+def get_filter(
     filter_id: str,
-    format: str = Query("json", description="Output format: json, rich, ai, markdown"),
+    format: OutputFormat = FORMAT_QUERY,
     client=Depends(jira),
 ):
     """Get filter details."""

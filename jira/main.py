@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import __version__
-from .deps import init_client, check_health
+from .deps import init_client
 from .routes import create_router
 
 # Routes that require a path parameter - used for helpful 404 messages
@@ -76,20 +76,11 @@ app = FastAPI(
 )
 
 
-# Health endpoint at root level
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    result = check_health()
-
-    if result["healthy"]:
-        return {"status": "healthy", "service": "jira"}
-    else:
-        return {
-            "status": "unhealthy",
-            "service": "jira",
-            "error": result.get("error"),
-        }
+# Liveness probe (used by bin/jira wait_for_server)
+@app.get("/ready")
+async def ready():
+    """Liveness probe — returns 200 if the server process is up."""
+    return {"status": "ready", "service": "jira"}
 
 
 @app.get("/")
@@ -98,7 +89,7 @@ async def root():
     return PlainTextResponse(
         f"Jira CLI Server v{__version__}\n"
         "Use /jira/help for available commands\n"
-        "Use /health for status\n"
+        "Use /jira/health for status\n"
     )
 
 

@@ -11,47 +11,22 @@ import pytest
 PLUGIN_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT))
 
-from jira.formatters import (
-    JiraIssueRichFormatter,
-    JiraIssueAIFormatter,
-    JiraIssueMarkdownFormatter,
-    JiraSearchRichFormatter,
-    JiraSearchAIFormatter,
-    JiraSearchMarkdownFormatter,
-    JiraTransitionsRichFormatter,
-    JiraTransitionsAIFormatter,
-    JiraCommentsRichFormatter,
-    JiraCommentsAIFormatter,
-    JiraCommentsMarkdownFormatter,
-    JiraAttachmentsRichFormatter,
-    JiraAttachmentsAIFormatter,
-    JiraHealthRichFormatter,
-    JiraHealthAIFormatter,
-    JiraHealthMarkdownFormatter,
-    JiraLinksRichFormatter,
-    JiraLinksAIFormatter,
-    JiraLinkTypesRichFormatter,
-    JiraLinkTypesAIFormatter,
-    JiraPrioritiesRichFormatter,
-    JiraPrioritiesAIFormatter,
-    JiraPrioritiesMarkdownFormatter,
-    JiraStatusesRichFormatter,
-    JiraStatusesAIFormatter,
-    JiraStatusesMarkdownFormatter,
-    JiraUserRichFormatter,
-    JiraUserAIFormatter,
-    JiraUserMarkdownFormatter,
-    JiraWatchersRichFormatter,
-    JiraWatchersAIFormatter,
-    JiraWebLinksRichFormatter,
-    JiraWebLinksAIFormatter,
-    JiraWorklogsRichFormatter,
-    JiraWorklogsAIFormatter,
-    JiraShowRichFormatter,
-    JiraShowAIFormatter,
-    JiraShowMarkdownFormatter,
-    formatter_registry,
-)
+from jira.formatters import formatter_registry
+from jira.formatters.attachments import JiraAttachmentsAIFormatter, JiraAttachmentsRichFormatter
+from jira.formatters.comments import JiraCommentsAIFormatter, JiraCommentsMarkdownFormatter, JiraCommentsRichFormatter
+from jira.formatters.health import JiraHealthAIFormatter, JiraHealthMarkdownFormatter, JiraHealthRichFormatter
+from jira.formatters.issue import JiraIssueAIFormatter, JiraIssueMarkdownFormatter, JiraIssueRichFormatter
+from jira.formatters.links import JiraLinksAIFormatter, JiraLinksRichFormatter
+from jira.formatters.linktypes import JiraLinkTypesAIFormatter, JiraLinkTypesRichFormatter
+from jira.formatters.priorities import JiraPrioritiesAIFormatter, JiraPrioritiesMarkdownFormatter, JiraPrioritiesRichFormatter
+from jira.formatters.search import JiraSearchAIFormatter, JiraSearchMarkdownFormatter, JiraSearchRichFormatter
+from jira.formatters.show import JiraShowAIFormatter, JiraShowMarkdownFormatter, JiraShowRichFormatter
+from jira.formatters.statuses import JiraStatusesAIFormatter, JiraStatusesMarkdownFormatter, JiraStatusesRichFormatter
+from jira.formatters.transitions import JiraTransitionsAIFormatter, JiraTransitionsRichFormatter
+from jira.formatters.user import JiraUserAIFormatter, JiraUserMarkdownFormatter, JiraUserRichFormatter
+from jira.formatters.watchers import JiraWatchersAIFormatter, JiraWatchersRichFormatter
+from jira.formatters.weblinks import JiraWebLinksAIFormatter, JiraWebLinksRichFormatter
+from jira.formatters.worklogs import JiraWorklogsAIFormatter, JiraWorklogsRichFormatter
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
