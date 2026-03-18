@@ -28,9 +28,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/jira start >/dev/null 2>&1 || true",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/jira start >/dev/null 2>&1 || ${CLAUDE_PLUGIN_ROOT}/bin/jira setup >/dev/null 2>&1 && ${CLAUDE_PLUGIN_ROOT}/bin/jira start >/dev/null 2>&1 || true",
             "async": true,
-            "timeout": 60
+            "timeout": 120
           }
         ]
       }
