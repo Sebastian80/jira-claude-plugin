@@ -55,8 +55,12 @@ async def list_versions(
 )
 async def create_version(body: CreateVersionBody, client=Depends(jira)):
     """Create a version."""
-    result = client.create_version(
-        name=body.name, project=body.project, description=body.description, released=body.released
+    project = client.project(body.project)
+    result = client.add_version(
+        project_key=body.project,
+        project_id=project["id"],
+        version=body.name,
+        is_released=body.released,
     )
     return success(result)
 
@@ -81,6 +85,6 @@ async def get_version(
 async def update_version(version_id: str, body: UpdateVersionBody, client=Depends(jira)):
     """Update a version."""
     result = client.update_version(
-        version_id=version_id, name=body.name, description=body.description, released=body.released
+        version=version_id, name=body.name, description=body.description, is_released=body.released
     )
     return success(result)
