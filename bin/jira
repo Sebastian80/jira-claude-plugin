@@ -96,7 +96,7 @@ is_running() {
 }
 
 wait_for_server() {
-    local timeout=${1:-10}
+    local timeout=${1:-30}
     local max_attempts=$((timeout * 2))
     local count=0
     while [[ $count -lt $max_attempts ]]; do
@@ -128,7 +128,7 @@ start_server() {
     local pid=$!
     echo "$pid" > "$PID_FILE"
 
-    if wait_for_server 10; then
+    if wait_for_server 30; then
         log "Server started (PID $pid)"
         return 0
     else
