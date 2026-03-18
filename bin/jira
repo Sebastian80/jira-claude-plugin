@@ -3,7 +3,7 @@
 # Jira CLI - Self-bootstrapping standalone client
 #
 # Features:
-# - Auto-creates venv on first run
+# - Auto-installs deps via uv on first run
 # - Auto-creates symlink in ~/.local/bin
 # - Manages server lifecycle (start/stop)
 # - Routes commands to HTTP API
@@ -25,7 +25,6 @@ set -e
 SCRIPT_PATH="$(realpath "$0")"
 PLUGIN_DIR="$(dirname "$(dirname "$SCRIPT_PATH")")"
 JIRA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/jira-cli"
-VENV_DIR="$JIRA_HOME/.venv"
 PID_FILE="$JIRA_HOME/server.pid"
 LOG_FILE="$JIRA_HOME/server.log"
 LOCAL_BIN="$HOME/.local/bin"
@@ -68,30 +67,11 @@ urlencode() {
     python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"
 }
 
-ensure_venv() {
-    if [[ ! -d "$VENV_DIR" ]]; then
-        log "Creating virtual environment..."
-        mkdir -p "$JIRA_HOME"
-        python3 -m venv "$VENV_DIR"
-
-        log "Installing dependencies..."
-        "$VENV_DIR/bin/pip" install --quiet --upgrade pip
-        "$VENV_DIR/bin/pip" install --quiet \
-            fastapi uvicorn httpx atlassian-python-api rich pydantic
-
-        # Install jira package in editable mode
-        "$VENV_DIR/bin/pip" install --quiet -e "$PLUGIN_DIR"
-
-        log "Setup complete."
-    else
-        # Re-install if plugin version changed (e.g. after /plugin update)
-        local plugin_version installed_version
-        plugin_version=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
-        installed_version=$("$VENV_DIR/bin/pip" show jira-cli 2>/dev/null | sed -n 's/^Version: //p')
-        if [[ -n "$plugin_version" && "$plugin_version" != "$installed_version" ]]; then
-            log "Upgrading jira-cli $installed_version -> $plugin_version..."
-            "$VENV_DIR/bin/pip" install --quiet -e "$PLUGIN_DIR"
-        fi
+ensure_uv() {
+    if ! command -v uv &>/dev/null; then
+        echo "Error: uv is not installed. Install it with:" >&2
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
+        exit 1
     fi
 }
 
@@ -120,7 +100,7 @@ wait_for_server() {
     local max_attempts=$((timeout * 2))
     local count=0
     while [[ $count -lt $max_attempts ]]; do
-        if curl -s "$BASE_URL/health" >/dev/null 2>&1; then
+        if curl -s "$BASE_URL/ready" >/dev/null 2>&1; then
             return 0
         fi
         sleep 0.5
@@ -135,14 +115,14 @@ start_server() {
         return 0
     fi
 
-    ensure_venv
+    ensure_uv
     ensure_symlink
 
     log "Starting server on $HOST:$PORT..."
     cd "$PLUGIN_DIR"
 
     JIRA_HOST="$HOST" JIRA_PORT="$PORT" \
-        nohup "$VENV_DIR/bin/python" -m jira.main \
+        nohup uv run --project "$PLUGIN_DIR" --locked -m jira.main \
         > "$LOG_FILE" 2>&1 &
 
     local pid=$!
@@ -368,7 +348,8 @@ print(json.dumps(d))
 case "${1:-help}" in
     setup)
         log "Setting up Jira CLI..."
-        ensure_venv
+        ensure_uv
+        uv sync --project "$PLUGIN_DIR" --locked
         ensure_symlink
         log "Done. Run 'jira health' to verify connection."
         ;;
@@ -393,7 +374,7 @@ case "${1:-help}" in
         if [[ $# -eq 1 ]]; then
             if is_running; then
                 echo "Server running (PID $(cat "$PID_FILE")) on $BASE_URL"
-                curl -s "$BASE_URL/health" | python3 -m json.tool 2>/dev/null || true
+                curl -s "$BASE_URL/jira/health" | python3 -m json.tool 2>/dev/null || true
             else
                 echo "Server not running"
                 exit 1
