@@ -118,6 +118,12 @@ start_server() {
     ensure_uv
     ensure_symlink
 
+    # Check if port is already in use
+    if curl -s "$BASE_URL/ready" >/dev/null 2>&1; then
+        log "Port $PORT already in use (not our server). Stop the other process first."
+        return 1
+    fi
+
     log "Starting server on $HOST:$PORT..."
     cd "$PLUGIN_DIR"
 
@@ -133,6 +139,8 @@ start_server() {
         return 0
     else
         log "Server failed to start. Check $LOG_FILE"
+        # Show last few lines of log for quick diagnosis
+        tail -3 "$LOG_FILE" >&2 2>/dev/null
         rm -f "$PID_FILE"
         return 1
     fi
@@ -145,6 +153,16 @@ stop_server() {
         if kill -0 "$pid" 2>/dev/null; then
             log "Stopping server (PID $pid)..."
             kill "$pid"
+            # Wait for process to actually exit (up to 5s)
+            local count=0
+            while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
+                sleep 0.5
+                count=$((count + 1))
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+                log "Force killing server (PID $pid)..."
+                kill -9 "$pid" 2>/dev/null
+            fi
             rm -f "$PID_FILE"
             log "Server stopped."
             return 0
@@ -364,7 +382,6 @@ case "${1:-help}" in
 
     restart)
         stop_server
-        sleep 1
         start_server
         ;;
 
