@@ -10,16 +10,6 @@
             "timeout": 120
           }
         ]
-      },
-      {
-        "matcher": "maintenance",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/jira setup 2>&1",
-            "timeout": 120
-          }
-        ]
       }
     ],
     "SessionStart": [
